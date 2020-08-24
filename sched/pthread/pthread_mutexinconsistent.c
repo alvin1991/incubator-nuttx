@@ -71,7 +71,7 @@
  *
  ****************************************************************************/
 
-void pthread_mutex_inconsistent(FAR struct pthread_tcb_s *tcb)
+void pthread_mutex_inconsistent(FAR struct tcb_s *tcb)
 {
   FAR struct pthread_mutex_s *mutex;
   irqstate_t flags;
@@ -80,7 +80,7 @@ void pthread_mutex_inconsistent(FAR struct pthread_tcb_s *tcb)
 
   sched_lock();
 
-  /* Remove and process each mutex from the list of mutexes held by this task */
+  /* Remove and process each mutex held by this task */
 
   while (tcb->mhead != NULL)
     {
@@ -95,7 +95,7 @@ void pthread_mutex_inconsistent(FAR struct pthread_tcb_s *tcb)
       /* Mark the mutex as INCONSISTENT and wake up any waiting thread */
 
       mutex->flags |= _PTHREAD_MFLAGS_INCONSISTENT;
-      (void)pthread_sem_give(&mutex->sem);
+      pthread_sem_give(&mutex->sem);
     }
 
   sched_unlock();

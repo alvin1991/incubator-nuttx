@@ -44,7 +44,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <semaphore.h>
 #include <fcntl.h>
 #include <assert.h>
 #include <errno.h>
@@ -54,6 +53,7 @@
 #include <nuttx/kmalloc.h>
 #include <nuttx/signal.h>
 #include <nuttx/fs/fs.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/timers/timer.h>
 
 #ifdef CONFIG_TIMER
@@ -116,7 +116,7 @@ static const struct file_operations g_timerops =
  * Private Functions
  ****************************************************************************/
 
-/************************************************************************************
+/****************************************************************************
  * Name: timer_notifier
  *
  * Description:
@@ -124,7 +124,7 @@ static const struct file_operations g_timerops =
  *
  * REVISIT: This function prototype is insufficient to support signaling
  *
- ************************************************************************************/
+ ****************************************************************************/
 
 static bool timer_notifier(FAR uint32_t *next_interval_us, FAR void *arg)
 {
@@ -141,13 +141,13 @@ static bool timer_notifier(FAR uint32_t *next_interval_us, FAR void *arg)
   return true;
 }
 
-/************************************************************************************
+/****************************************************************************
  * Name: timer_open
  *
  * Description:
  *   This function is called whenever the timer device is opened.
  *
- ************************************************************************************/
+ ****************************************************************************/
 
 static int timer_open(FAR struct file *filep)
 {
@@ -192,13 +192,13 @@ errout:
   return ret;
 }
 
-/************************************************************************************
+/****************************************************************************
  * Name: timer_close
  *
  * Description:
  *   This function is called when the timer device is closed.
  *
- ************************************************************************************/
+ ****************************************************************************/
 
 static int timer_close(FAR struct file *filep)
 {
@@ -229,28 +229,29 @@ static int timer_close(FAR struct file *filep)
   return OK;
 }
 
-/************************************************************************************
+/****************************************************************************
  * Name: timer_read
  *
  * Description:
  *   A dummy read method.  This is provided only to satisfy the VFS layer.
  *
- ************************************************************************************/
+ ****************************************************************************/
 
-static ssize_t timer_read(FAR struct file *filep, FAR char *buffer, size_t buflen)
+static ssize_t timer_read(FAR struct file *filep, FAR char *buffer,
+                          size_t buflen)
 {
   /* Return zero -- usually meaning end-of-file */
 
   return 0;
 }
 
-/************************************************************************************
+/****************************************************************************
  * Name: timer_write
  *
  * Description:
  *   A dummy write method.  This is provided only to satisfy the VFS layer.
  *
- ************************************************************************************/
+ ****************************************************************************/
 
 static ssize_t timer_write(FAR struct file *filep, FAR const char *buffer,
                            size_t buflen)
@@ -258,14 +259,14 @@ static ssize_t timer_write(FAR struct file *filep, FAR const char *buffer,
   return 0;
 }
 
-/************************************************************************************
+/****************************************************************************
  * Name: timer_ioctl
  *
  * Description:
  *   The standard ioctl method.  This is where ALL of the timer work is
  *   done.
  *
- ************************************************************************************/
+ ****************************************************************************/
 
 static int timer_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
@@ -393,7 +394,8 @@ static int timer_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
         if (notify != NULL)
           {
             memcpy(&upper->notify, notify, sizeof(*notify));
-            ret = timer_setcallback((FAR void *)upper, timer_notifier, upper);
+            ret = timer_setcallback((FAR void *)upper,
+                                    timer_notifier, upper);
           }
         else
           {
@@ -422,7 +424,9 @@ static int timer_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
       }
       break;
 
-    /* Any unrecognized IOCTL commands might be platform-specific ioctl commands */
+    /* Any unrecognized IOCTL commands might be platform-specific ioctl
+     * commands
+     */
 
     default:
       {
@@ -439,7 +443,7 @@ static int timer_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
           }
         else
           {
-            ret = -ENOSYS;
+            ret = -ENOTTY;
           }
       }
       break;
@@ -567,12 +571,12 @@ void timer_unregister(FAR void *handle)
   /* Disable the timer */
 
   DEBUGASSERT(lower->ops->stop); /* Required */
-  (void)lower->ops->stop(lower);
+  lower->ops->stop(lower);
   nxsig_cancel_notification(&upper->work);
 
   /* Unregister the timer device */
 
-  (void)unregister_driver(upper->path);
+  unregister_driver(upper->path);
 
   /* Then free all of the driver resources */
 
@@ -587,7 +591,7 @@ void timer_unregister(FAR void *handle)
  * Description:
  *   This function can be called to add a callback into driver-related code
  *   to handle timer expirations.  This is a strictly OS internal interface
- *   and may NOT be used by appliction code.
+ *   and may NOT be used by application code.
  *
  * Input Parameters:
  *   handle   - This is the handle that was returned by timer_register()
@@ -595,7 +599,8 @@ void timer_unregister(FAR void *handle)
  *   arg      - Argument to be provided with the callback
  *
  * Returned Value:
- *   None
+ *   Zero (OK), if the callback was successfully set, or -ENOSYS if the lower
+ *   half driver does not support the operation.
  *
  ****************************************************************************/
 
@@ -615,7 +620,7 @@ int timer_setcallback(FAR void *handle, tccb_t callback, FAR void *arg)
 
   if (lower->ops->setcallback != NULL) /* Optional */
     {
-      /* Yes.. Defer the hander attachment to the lower half driver */
+      /* Yes.. Defer the handler attachment to the lower half driver */
 
       lower->ops->setcallback(lower, callback, arg);
       return OK;

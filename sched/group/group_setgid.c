@@ -57,7 +57,7 @@
  *   privileges.
  *
  * Input Parameters:
- *   gid - Identity to set the various process' group ID attributes to.
+ *   gid - Identity to set the various process's group ID attributes to.
  *
  * Returned Value:
  *   Zero if successful and -1 in case of failure, in which case errno is set
@@ -93,7 +93,7 @@ int setgid(gid_t gid)
 
   /* Set the task group's group identity. */
 
-  DEBUGASSERT(group != NULL);
+  DEBUGASSERT(rgroup != NULL);
   rgroup->tg_gid = gid;
   return OK;
 }

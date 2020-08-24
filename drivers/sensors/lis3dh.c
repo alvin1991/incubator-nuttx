@@ -42,13 +42,12 @@
 #include <errno.h>
 #include <debug.h>
 #include <string.h>
-#include <semaphore.h>
 
 #include <nuttx/kmalloc.h>
 #include <nuttx/wqueue.h>
 #include <nuttx/random.h>
-
 #include <nuttx/fs/fs.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/sensors/lis3dh.h>
 #include <nuttx/sensors/ioctl.h>
 
@@ -100,7 +99,8 @@ static void lis3dh_write_register(FAR struct lis3dh_dev_s *dev,
 static void lis3dh_reset(FAR struct lis3dh_dev_s *dev);
 static int lis3dh_ident(FAR struct lis3dh_dev_s *dev);
 static int lis3dh_read_fifo(FAR struct lis3dh_dev_s *dev);
-static int lis3dh_interrupt_handler(int irq, FAR void *context, FAR void *arg);
+static int lis3dh_interrupt_handler(int irq, FAR void *context,
+                                    FAR void *arg);
 static void lis3dh_worker(FAR void *arg);
 static int lis3dh_irq_enable(FAR struct lis3dh_dev_s *dev, bool enable);
 static int lis3dh_fifo_enable(FAR struct lis3dh_dev_s *dev);
@@ -153,7 +153,9 @@ static void lis3dh_read_register(FAR struct lis3dh_dev_s *dev,
 {
   uint8_t buffer[2];
 
-  /* Lock the SPI bus so that only one device can access it at the same time */
+  /* Lock the SPI bus so that only one device can access it at the same
+   * time.
+   */
 
   SPI_LOCK(dev->spi, true);
 
@@ -194,7 +196,9 @@ static void lis3dh_write_register(FAR struct lis3dh_dev_s *dev,
 {
   uint8_t buffer[2];
 
-  /* Lock the SPI bus so that only one device can access it at the same time */
+  /* Lock the SPI bus so that only one device can access it at the same
+   * time.
+   */
 
   SPI_LOCK(dev->spi, true);
 
@@ -287,7 +291,7 @@ static void lis3dh_queue_lock(FAR struct lis3dh_dev_s *dev)
  * Name: lis3dh_queue_unlock
  *
  * Description:
- *   Unlocks exclusive acccess to the ring buffer queue
+ *   Unlocks exclusive access to the ring buffer queue
  *
  * Input Parameters:
  *   dev - Pointer to device driver instance
@@ -502,7 +506,8 @@ static int lis3dh_read_fifo(FAR struct lis3dh_dev_s *dev)
  *
  ****************************************************************************/
 
-static int lis3dh_interrupt_handler(int irq, FAR void *context, FAR void *arg)
+static int lis3dh_interrupt_handler(int irq, FAR void *context,
+                                    FAR void *arg)
 {
   /* The interrupt handler is called when the FIFO watermark is reached */
 
@@ -1004,7 +1009,7 @@ int lis3dh_register(FAR const char *devpath, FAR struct spi_dev_s *spi,
   /* Initialize read notification semaphore */
 
   nxsem_init(&priv->readsem, 0, 0);
-  nxsem_setprotocol(&priv->readsem, SEM_PRIO_NONE);
+  nxsem_set_protocol(&priv->readsem, SEM_PRIO_NONE);
 
   /* Setup SPI frequency and mode */
 

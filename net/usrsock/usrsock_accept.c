@@ -1,35 +1,20 @@
 /****************************************************************************
  * net/usrsock/usrsock_accept.c
  *
- *   Copyright (C) 2018 Pinecone Inc. All rights reserved.
- *   Author: Xiang Xiao <xiaoxiang@pinecone.net>
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name NuttX nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
  *
  ****************************************************************************/
 
@@ -44,7 +29,6 @@
 #include <errno.h>
 #include <debug.h>
 
-#include <nuttx/semaphore.h>
 #include <nuttx/net/net.h>
 #include <nuttx/net/usrsock.h>
 
@@ -215,7 +199,8 @@ static int do_accept_request(FAR struct usrsock_conn_s *conn,
  * Parameters:
  *   psock    Reference to the listening socket structure
  *   addr     Receives the address of the connecting client
- *   addrlen  Input: allocated size of 'addr', Return: returned size of 'addr'
+ *   addrlen  Input: allocated size of 'addr',
+ *            Return: returned size of 'addr'
  *   newsock  Location to return the accepted socket information.
  *
  * Returned Value:
@@ -240,10 +225,6 @@ int usrsock_accept(FAR struct socket *psock, FAR struct sockaddr *addr,
   socklen_t inaddrlen = 0;
   socklen_t outaddrlen = 0;
   int ret;
-#ifdef CONFIG_NET_SOCKOPTS
-  struct timespec abstime;
-#endif
-  struct timespec *ptimeo = NULL;
 
   DEBUGASSERT(conn);
 
@@ -307,25 +288,6 @@ int usrsock_accept(FAR struct socket *psock, FAR struct sockaddr *addr,
       goto errout_unlock;
     }
 
-#ifdef CONFIG_NET_SOCKOPTS
-  if (psock->s_rcvtimeo != 0)
-    {
-      DEBUGVERIFY(clock_gettime(CLOCK_REALTIME, &abstime));
-
-      /* Prepare timeout value for accept. */
-
-      abstime.tv_sec += psock->s_rcvtimeo / DSEC_PER_SEC;
-      abstime.tv_nsec += (psock->s_rcvtimeo % DSEC_PER_SEC) * NSEC_PER_DSEC;
-      if (abstime.tv_nsec >= NSEC_PER_SEC)
-        {
-          abstime.tv_sec++;
-          abstime.tv_nsec -= NSEC_PER_SEC;
-        }
-
-      ptimeo = &abstime;
-    }
-#endif
-
   do
     {
       /* Check if remote end has closed connection. */
@@ -364,7 +326,8 @@ int usrsock_accept(FAR struct socket *psock, FAR struct sockaddr *addr,
 
           /* Wait for receive-avail (or abort, or timeout, or signal). */
 
-          ret = net_timedwait(&state.reqstate.recvsem, ptimeo);
+          ret = net_timedwait(&state.reqstate.recvsem,
+                              _SO_TIMEOUT(psock->s_rcvtimeo));
           if (ret < 0)
             {
               if (ret == -ETIMEDOUT)
@@ -443,11 +406,7 @@ int usrsock_accept(FAR struct socket *psock, FAR struct sockaddr *addr,
         {
           /* Wait for completion of request. */
 
-          while ((ret = net_lockedwait(&state.reqstate.recvsem)) < 0)
-            {
-              DEBUGASSERT(ret == -EINTR);
-            }
-
+          net_lockedwait_uninterruptible(&state.reqstate.recvsem);
           ret = state.reqstate.result;
 
           DEBUGASSERT(state.valuelen <= inaddrlen);

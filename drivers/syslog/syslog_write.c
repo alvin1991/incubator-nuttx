@@ -105,7 +105,7 @@ static ssize_t syslog_default_write(FAR const char *buffer, size_t buflen)
         }
     }
 
-  return buflen;
+  return nwritten;
 }
 
 /****************************************************************************
@@ -137,8 +137,9 @@ ssize_t syslog_write(FAR const char *buffer, size_t buflen)
        * buffer.
        */
 
-      (void)syslog_flush_intbuffer(g_syslog_channel, false);
+      syslog_flush_intbuffer(g_syslog_channel, false);
     }
 #endif
+
   return syslog_default_write(buffer, buflen);
 }

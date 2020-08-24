@@ -65,8 +65,8 @@
 #if defined(CONFIG_SAMA5_BOOT_SDRAM)
 /* When booting from SDRAM, NuttX is loaded in SDRAM by an intermediate
  * bootloader.
- * That bootloader had to have already configured the PLL and SDRAM for proper
- * operation.
+ * That bootloader had to have already configured the PLL and SDRAM for
+ * proper operation.
  *
  * In this case, we don not reconfigure the clocking.
  * Rather, we need to query the register settings to determine the clock
@@ -90,6 +90,15 @@
  */
 
 #  include <arch/board/board_384mhz.h>
+
+#elif defined(CONFIG_SAMA5D2XULT_498MHZ)
+
+/* This is the configuration results in a CPU clock of 498MHz.
+ *
+ * In this configuration, UPLL is the source of the UHPHS clock (if enabled).
+ */
+
+#  include <arch/board/board_498mhz.h>
 
 #elif defined(CONFIG_SAMA5D2XULT_528MHZ)
 
@@ -228,6 +237,34 @@
 #define PIO_UART1_RXD     PIO_UART1_RXD_1
 #define PIO_UART1_TXD     PIO_UART1_TXD_1
 
+/* Standard UART on Arduino connector (J22) is UART2.
+ *
+ *   ---- ------- -------------
+ *   J22  BOARD      SAMA5D2
+ *   PIN  NAME    PIO  FUNCTION
+ *   ---- ------- -------------
+ *    7   URXD2   PD4 UART2 URXD2
+ *    8   UTXD2   PD5 UART2 UTXD2
+ *   ---- ------- -------------
+ */
+
+#define PIO_UART2_RXD     PIO_UART2_RXD_2
+#define PIO_UART2_TXD     PIO_UART2_TXD_2
+
+/* Standard UART on Arduino connector (J17) is UART3.
+ *
+ *   ---- ------- -------------
+ *   J17  BOARD      SAMA5D2
+ *   PIN  NAME    PIO  FUNCTION
+ *   ---- ------- -------------
+ *    27   URXD3  PB11 UART3 URXD3
+ *    28   UTXD3  PB12 UART3 UTXD3
+ *   ---- ------- -------------
+ */
+
+#define PIO_UART3_RXD     PIO_UART3_RXD_1
+#define PIO_UART3_TXD     PIO_UART3_TXD_1
+
 /* Standard UART on Arduino connector (J21) is FLEXCOM4.
  *
  *   ---- ------- -------------
@@ -280,6 +317,24 @@
  *   ---- ------- ---- --------
  */
 
+/* SDIO - Used for both Port 0 & 1 ******************************************/
+
+/* 386 KHz for initial inquiry stuff */
+
+#define BOARD_SDMMC_IDMODE_PRESCALER    SDMMC_SYSCTL_SDCLKFS_DIV256
+#define BOARD_SDMMC_IDMODE_DIVISOR      SDMMC_SYSCTL_DVS_DIV(2)
+
+/* 24.8MHz for other modes */
+
+#define BOARD_SDMMC_MMCMODE_PRESCALER   SDMMC_SYSCTL_SDCLKFS_DIV8
+#define BOARD_SDMMC_MMCMODE_DIVISOR     SDMMC_SYSCTL_DVS_DIV(1)
+
+#define BOARD_SDMMC_SD1MODE_PRESCALER   SDMMC_SYSCTL_SDCLKFS_DIV8
+#define BOARD_SDMMC_SD1MODE_DIVISOR     SDMMC_SYSCTL_DVS_DIV(1)
+
+#define BOARD_SDMMC_SD4MODE_PRESCALER   SDMMC_SYSCTL_SDCLKFS_DIV8
+#define BOARD_SDMMC_SD4MODE_DIVISOR     SDMMC_SYSCTL_DVS_DIV(1)
+
 /****************************************************************************
  * Assembly Language Macros
  ****************************************************************************/
@@ -289,4 +344,4 @@
   .endm
 #endif /* __ASSEMBLY__ */
 
-#endif  /* __BOARDS_ARM_SAMA5_SAMA5D2_XULT_INCLUDE_BOARD_H */
+#endif /* __BOARDS_ARM_SAMA5_SAMA5D2_XULT_INCLUDE_BOARD_H */

@@ -53,9 +53,10 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
+
 #include <nuttx/fs/fs.h>
 #include <nuttx/i2c/i2c_master.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/spi/spi.h>
 
 /****************************************************************************
@@ -95,7 +96,7 @@ struct dac_fifo_s
   struct dac_msg_s af_buffer[CONFIG_DAC_FIFOSIZE];
 };
 
-/* This structure defines all of the operations providd by the architecture
+/* This structure defines all of the operations provided by the architecture
  * specific logic.  All fields must be provided with non-NULL function
  * pointers by the caller of dac_register().
  */
@@ -118,8 +119,9 @@ struct dac_ops_s
   CODE int (*ao_setup)(FAR struct dac_dev_s *dev);
 
   /* Disable the DAC.  This method is called when the DAC device is closed.
-   * This method reverses the operation the setup method.
+   * This method reverses the operation of the setup method.
    */
+
   CODE void (*ao_shutdown)(FAR struct dac_dev_s *dev);
 
   /* Call to enable or disable TX interrupts */
@@ -132,12 +134,13 @@ struct dac_ops_s
 
   /* All ioctl calls will be routed through this method */
 
-  CODE int (*ao_ioctl)(FAR struct dac_dev_s *dev, int cmd, unsigned long arg);
+  CODE int (*ao_ioctl)(FAR struct dac_dev_s *dev, int cmd,
+                       unsigned long arg);
 };
 
 /* This is the device structure used by the driver.  The caller of
  * dac_register() must allocate and initialize this structure.  The
- * calling logic need only set all fields to zero except:
+ * calling logic needs to set all fields to zero except:
  *
  *   The elements of 'ad_ops', and 'ad_priv'
  *
@@ -161,7 +164,7 @@ struct dac_dev_s
  ****************************************************************************/
 
 /****************************************************************************
- * Public Functions
+ * Public Function Prototypes
  ****************************************************************************/
 
 #if defined(__cplusplus)

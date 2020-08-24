@@ -67,7 +67,7 @@
  *   Equivalent to the standard write() function except that is accepts a
  *   struct file instance instead of a file descriptor.  It is functionally
  *   equivalent to write() except that in addition to the differences in
- *   input paramters:
+ *   input parameters:
  *
  *  - It does not modify the errno variable,
  *  - It is not a cancellation point, and
@@ -86,7 +86,8 @@
  *
  ****************************************************************************/
 
-ssize_t file_write(FAR struct file *filep, FAR const void *buf, size_t nbytes)
+ssize_t file_write(FAR struct file *filep, FAR const void *buf,
+                   size_t nbytes)
 {
   FAR struct inode *inode;
 
@@ -149,8 +150,10 @@ ssize_t nx_write(int fd, FAR const void *buf, size_t nbytes)
 
   if ((unsigned int)fd >= CONFIG_NFILE_DESCRIPTORS)
     {
-#ifdef CONFIG_NET_TCP
-      /* Write to a socket descriptor is equivalent to send with flags == 0. */
+#if defined(CONFIG_NET_TCP) || defined(CONFIG_NET_CAN)
+      /* Write to a socket descriptor is equivalent to
+       * send with flags == 0.
+       */
 
       ret = nx_send(fd, buf, nbytes, 0);
 #else
@@ -204,7 +207,7 @@ ssize_t nx_write(int fd, FAR const void *buf, size_t nbytes)
  *    buf is outside your accessible address space.
  *  EFBIG
  *    An attempt was made to write a file that exceeds the implementation
- *    defined maximum file size or the process' file size limit, or
+ *    defined maximum file size or the process's file size limit, or
  *    to write at a position past the maximum allowed offset.
  *  EINTR
  *    The call was interrupted by a signal before any data was written.
@@ -232,7 +235,7 @@ ssize_t write(int fd, FAR const void *buf, size_t nbytes)
 
   /* write() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
   /* Let nx_write() do all of the work */
 

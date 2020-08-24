@@ -38,14 +38,9 @@
  ****************************************************************************/
 
 #include <stdio.h>
-
 #include <X11/Xlib.h>
 
-/****************************************************************************
- * Public Function Prototypes
- ****************************************************************************/
-
-extern int up_buttonevent(int x, int y, int buttons);
+#include "up_internal.h"
 
 /****************************************************************************
  * Public Data
@@ -54,8 +49,6 @@ extern int up_buttonevent(int x, int y, int buttons);
 /* Defined in up_x11framebuffer.c */
 
 extern Display *g_display;
-
-volatile int g_eventloop;
 
 /****************************************************************************
  * Private Functions
@@ -107,7 +100,7 @@ void up_x11events(void)
 
   /* Check if there are any pending, queue X11 events. */
 
-  if (XPending(g_display) > 0)
+  if (g_display && XPending(g_display) > 0)
     {
       /* Yes, get the event (this should not block since we know there are
        * pending events)
@@ -127,7 +120,7 @@ void up_x11events(void)
             break;
 
           case ButtonPress  : /* Enabled by ButtonPressMask */
-          case ButtonRelease : /* Enabled by ButtonReleaseMask */
+          case ButtonRelease: /* Enabled by ButtonReleaseMask */
             {
               up_buttonevent(event.xbutton.x, event.xbutton.y,
                              up_buttonmap(event.xbutton.state));

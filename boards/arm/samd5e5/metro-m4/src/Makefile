@@ -33,9 +33,8 @@
 #
 ############################################################################
 
--include $(TOPDIR)/Make.defs
+include $(TOPDIR)/Make.defs
 
-ASRCS =
 CSRCS = sam_boot.c sam_bringup.c
 
 ifeq ($(CONFIG_LIB_BOARDCTL),y)
@@ -46,6 +45,30 @@ ifeq ($(CONFIG_ARCH_LEDS),y)
 CSRCS += sam_autoleds.c
 else
 CSRCS += sam_userleds.c
+endif
+
+ifeq ($(CONFIG_USBDEV),y)
+CSRCS += sam_usbdev.c
+endif
+
+ifeq ($(CONFIG_USBMSC),y)
+CSRCS += sam_usbmsc.c
+endif
+
+ifeq ($(CONFIG_USBDEV_COMPOSITE),y)
+CSRCS += sam_composite.c
+endif
+
+ifeq ($(CONFIG_USBHOST),y)
+CSRCS += sam_usbhost.c
+endif
+
+ifeq ($(CONFIG_FS_AUTOMOUNTER),y)
+CSRCS += sam_automount.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_SERCOM5_ISI2C),y)
+CSRCS += sam_i2c.c
 endif
 
 include $(TOPDIR)/boards/Board.mk

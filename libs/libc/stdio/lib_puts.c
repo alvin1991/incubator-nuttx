@@ -52,7 +52,7 @@
  *
  ****************************************************************************/
 
-int puts(FAR const char *s)
+int puts(FAR const IPTR char *s)
 {
   FILE *stream = stdout;
   int nwritten;
@@ -94,4 +94,3 @@ int puts(FAR const char *s)
   lib_give_semaphore(stdout);
   return nput;
 }
-

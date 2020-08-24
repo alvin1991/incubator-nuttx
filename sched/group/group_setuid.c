@@ -58,7 +58,7 @@
  *   privileges.
  *
  * Input Parameters:
- *   uid - User identity to set the various process' user ID attributes to.
+ *   uid - User identity to set the various process's user ID attributes to.
  *
  * Returned Value:
  *   Zero if successful and -1 in case of failure, in which case errno is set
@@ -94,7 +94,7 @@ int setuid(uid_t uid)
 
   /* Set the task group's group identity. */
 
-  DEBUGASSERT(group != NULL);
+  DEBUGASSERT(rgroup != NULL);
   rgroup->tg_uid = uid;
   return OK;
 }

@@ -44,7 +44,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <assert.h>
 #include <debug.h>
@@ -58,8 +57,8 @@
 #include <nuttx/semaphore.h>
 #include <nuttx/spi/qspi.h>
 
-#include "up_internal.h"
-#include "up_arch.h"
+#include "arm_internal.h"
+#include "arm_arch.h"
 #include "barriers.h"
 
 #include "stm32l4_gpio.h"
@@ -75,7 +74,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
- /* QSPI memory synchronization */
+/* QSPI memory synchronization */
 
 #define MEMORY_SYNC()     do { ARM_DSB(); ARM_ISB(); } while (0)
 
@@ -198,7 +197,7 @@ struct stm32l4_qspidev_s
   sem_t dmawait;                /* Used to wait for DMA completion */
   int result;                   /* DMA result */
   DMA_HANDLE dmach;             /* QSPI DMA handle */
-  WDOG_ID dmadog;               /* Watchdog that handles DMA timeouts */
+  struct wdog_s dmadog;         /* Watchdog that handles DMA timeouts */
 #endif
 
   /* Debug stuff */
@@ -208,17 +207,17 @@ struct stm32l4_qspidev_s
 #endif
 
 #ifdef CONFIG_STM32L4_QSPI_REGDEBUG
-   bool     wrlast;            /* Last was a write */
-   uint32_t addresslast;       /* Last address */
-   uint32_t valuelast;         /* Last value */
-   int      ntimes;            /* Number of times */
+  bool     wrlast;            /* Last was a write */
+  uint32_t addresslast;       /* Last address */
+  uint32_t valuelast;         /* Last value */
+  int      ntimes;            /* Number of times */
 #endif
 };
 
 /* The QSPI transaction specification
  *
- * This is mostly the values of the CCR and DLR, AR, ABR, broken out into a C struct
- * since these fields need to be considered at various phases of the
+ * This is mostly the values of the CCR and DLR, AR, ABR, broken out into a C
+ * struct since these fields need to be considered at various phases of the
  * transaction processing activity.
  */
 
@@ -266,11 +265,12 @@ static bool     qspi_checkreg(struct stm32l4_qspidev_s *priv, bool wr,
 
 static inline uint32_t qspi_getreg(struct stm32l4_qspidev_s *priv,
                   unsigned int offset);
-static inline void qspi_putreg(struct stm32l4_qspidev_s *priv, uint32_t value,
-                  unsigned int offset);
+static inline void qspi_putreg(struct stm32l4_qspidev_s *priv,
+                  uint32_t value, unsigned int offset);
 
 #ifdef CONFIG_DEBUG_SPI_INFO
-static void     qspi_dumpregs(struct stm32l4_qspidev_s *priv, const char *msg);
+static void     qspi_dumpregs(struct stm32l4_qspidev_s *priv,
+                  const char *msg);
 #else
 # define        qspi_dumpregs(priv,msg)
 #endif
@@ -311,7 +311,8 @@ static void     qspi_dma_sampledone(struct stm32l4_qspidev_s *priv);
 /* QSPI methods */
 
 static int      qspi_lock(struct qspi_dev_s *dev, bool lock);
-static uint32_t qspi_setfrequency(struct qspi_dev_s *dev, uint32_t frequency);
+static uint32_t qspi_setfrequency(struct qspi_dev_s *dev,
+                  uint32_t frequency);
 static void     qspi_setmode(struct qspi_dev_s *dev, enum qspi_mode_e mode);
 static void     qspi_setbits(struct qspi_dev_s *dev, int nbits);
 static int      qspi_command(struct qspi_dev_s *dev,
@@ -383,8 +384,8 @@ static struct stm32l4_qspidev_s g_qspi0dev =
  ****************************************************************************/
 
 #ifdef CONFIG_STM32L4_QSPI_REGDEBUG
-static bool qspi_checkreg(struct stm32l4_qspidev_s *priv, bool wr, uint32_t value,
-                         uint32_t address)
+static bool qspi_checkreg(struct stm32l4_qspidev_s *priv, bool wr,
+                          uint32_t value, uint32_t address)
 {
   if (wr      == priv->wrlast &&     /* Same kind of access? */
       value   == priv->valuelast &&  /* Same value? */
@@ -452,8 +453,8 @@ static inline uint32_t qspi_getreg(struct stm32l4_qspidev_s *priv,
  *
  ****************************************************************************/
 
-static inline void qspi_putreg(struct stm32l4_qspidev_s *priv, uint32_t value,
-                              unsigned int offset)
+static inline void qspi_putreg(struct stm32l4_qspidev_s *priv,
+                               uint32_t value, unsigned int offset)
 {
   uint32_t address = priv->base + offset;
 
@@ -490,7 +491,8 @@ static void qspi_dumpregs(struct stm32l4_qspidev_s *priv, const char *msg)
 
 #if 0
   /* This extra verbose output may be helpful in some cases; you'll need
-   * to make sure your syslog is large enough to accommodate the extra output.
+   * to make sure your syslog is large enough to accommodate the extra
+   * output.
    */
 
   regval = getreg32(priv->base + STM32L4_QUADSPI_CR_OFFSET);    /* Control Register */
@@ -563,7 +565,7 @@ static void qspi_dumpregs(struct stm32l4_qspidev_s *priv, const char *msg)
   spiinfo("   PIR:%08x  LPTR:%08x\n",
           getreg32(priv->base + STM32L4_QUADSPI_PIR_OFFSET),    /* Polling Interval Register */
           getreg32(priv->base + STM32L4_QUADSPI_LPTR_OFFSET));  /* Low-Power Timeout Register */
-  (void)regval;
+  UNUSED(regval);
 #endif
 }
 #endif
@@ -613,7 +615,8 @@ static void qspi_dma_sampleinit(struct stm32l4_qspidev_s *priv)
 {
   /* Put contents of register samples into a known state */
 
-  memset(priv->dmaregs, 0xff, DMA_NSAMPLES * sizeof(struct stm32l4_dmaregs_s));
+  memset(priv->dmaregs, 0xff,
+         DMA_NSAMPLES * sizeof(struct stm32l4_dmaregs_s));
 
   /* Then get the initial samples */
 
@@ -714,8 +717,10 @@ static int qspi_setupxctnfromcmd(struct qspi_xctnspec_s *xctn,
 
   if (QSPICMD_ISDATA(cmdinfo->flags))
     {
-      spiinfo("  %s Data:\n", QSPICMD_ISWRITE(cmdinfo->flags) ? "Write" : "Read");
-      spiinfo("    buffer/length: %p/%d\n", cmdinfo->buffer, cmdinfo->buflen);
+      spiinfo("  %s Data:\n",
+              QSPICMD_ISWRITE(cmdinfo->flags) ? "Write" : "Read");
+      spiinfo("    buffer/length: %p/%d\n",
+              cmdinfo->buffer, cmdinfo->buflen);
     }
 #endif
 
@@ -798,7 +803,8 @@ static int qspi_setupxctnfromcmd(struct qspi_xctnspec_s *xctn,
     }
 
 #if defined(STM32L4_QSPI_INTERRUPTS)
-  xctn->function = QSPICMD_ISWRITE(cmdinfo->flags) ? CCR_FMODE_INDWR : CCR_FMODE_INDRD;
+  xctn->function = QSPICMD_ISWRITE(cmdinfo->flags) ? CCR_FMODE_INDWR
+                                                   : CCR_FMODE_INDRD;
   xctn->disposition = - EIO;
   xctn->idxnow = 0;
 #endif
@@ -832,7 +838,8 @@ static int qspi_setupxctnfrommem(struct qspi_xctnspec_s *xctn,
   spiinfo("  cmd: %04x\n", meminfo->cmd);
   spiinfo("  address/length: %08lx/%d\n",
           (unsigned long)meminfo->addr, meminfo->addrlen);
-  spiinfo("  %s Data:\n", QSPIMEM_ISWRITE(meminfo->flags) ? "Write" : "Read");
+  spiinfo("  %s Data:\n",
+          QSPIMEM_ISWRITE(meminfo->flags) ? "Write" : "Read");
   spiinfo("    buffer/length: %p/%d\n", meminfo->buffer, meminfo->buflen);
 #endif
 
@@ -927,7 +934,8 @@ static int qspi_setupxctnfrommem(struct qspi_xctnspec_s *xctn,
   xctn->isddr = 0;
 
 #if defined(STM32L4_QSPI_INTERRUPTS)
-  xctn->function = QSPIMEM_ISWRITE(meminfo->flags) ? CCR_FMODE_INDWR : CCR_FMODE_INDRD;
+  xctn->function = QSPIMEM_ISWRITE(meminfo->flags) ? CCR_FMODE_INDWR
+                                                   : CCR_FMODE_INDRD;
   xctn->disposition = - EIO;
   xctn->idxnow = 0;
 #endif
@@ -958,11 +966,13 @@ static void qspi_waitstatusflags(struct stm32l4_qspidev_s *priv,
 
   if (polarity)
     {
-      while (!((regval = qspi_getreg(priv, STM32L4_QUADSPI_SR_OFFSET)) & mask));
+      while (!((regval = qspi_getreg(priv, STM32L4_QUADSPI_SR_OFFSET))
+               & mask));
     }
   else
     {
-      while (((regval = qspi_getreg(priv, STM32L4_QUADSPI_SR_OFFSET)) & mask));
+      while (((regval = qspi_getreg(priv, STM32L4_QUADSPI_SR_OFFSET))
+              & mask));
     }
 }
 
@@ -1015,7 +1025,7 @@ static void qspi_ccrconfig(struct stm32l4_qspidev_s *priv,
 
   if (CCR_DMODE_NONE != xctn->datamode && CCR_FMODE_MEMMAP != fctn)
     {
-      qspi_putreg(priv, xctn->datasize-1, STM32L4_QUADSPI_DLR_OFFSET);
+      qspi_putreg(priv, xctn->datasize - 1, STM32L4_QUADSPI_DLR_OFFSET);
     }
 
   /* If we have alternate bytes, stick them in now */
@@ -1087,7 +1097,9 @@ static int qspi0_interrupt(int irq, void *context, FAR void *arg)
         {
           /* Write data until we have no more or have no place to put it */
 
-          while ((regval = qspi_getreg(&g_qspi0dev, STM32L4_QUADSPI_SR_OFFSET)) & QSPI_SR_FTF)
+          while ((regval = qspi_getreg(&g_qspi0dev,
+                                       STM32L4_QUADSPI_SR_OFFSET))
+                 & QSPI_SR_FTF)
             {
               if (g_qspi0dev.xctn->idxnow < g_qspi0dev.xctn->datasize)
                 {
@@ -1107,11 +1119,14 @@ static int qspi0_interrupt(int irq, void *context, FAR void *arg)
         {
           /* Read data until we have no more or have no place to put it */
 
-          while ((regval = qspi_getreg(&g_qspi0dev, STM32L4_QUADSPI_SR_OFFSET)) & QSPI_SR_FTF)
+          while ((regval = qspi_getreg(&g_qspi0dev,
+                                       STM32L4_QUADSPI_SR_OFFSET))
+                 & QSPI_SR_FTF)
             {
               if (g_qspi0dev.xctn->idxnow < g_qspi0dev.xctn->datasize)
                 {
-                  ((uint8_t *)g_qspi0dev.xctn->buffer)[g_qspi0dev.xctn->idxnow] =
+                  ((uint8_t *)g_qspi0dev.xctn->buffer)
+                    [g_qspi0dev.xctn->idxnow] =
                     *(volatile uint8_t *)datareg;
                   ++g_qspi0dev.xctn->idxnow;
                 }
@@ -1128,56 +1143,60 @@ static int qspi0_interrupt(int irq, void *context, FAR void *arg)
   /* Is it 'Transfer Complete'? */
 
   if ((status & QSPI_SR_TCF) && (cr & QSPI_CR_TCIE))
-  {
-    /* Acknowledge interrupt */
+    {
+      /* Acknowledge interrupt */
 
-    qspi_putreg(&g_qspi0dev, QSPI_FCR_CTCF, STM32L4_QUADSPI_FCR);
+      qspi_putreg(&g_qspi0dev, QSPI_FCR_CTCF, STM32L4_QUADSPI_FCR);
 
-    /* Disable the QSPI FIFO Threshold, Transfer Error and Transfer complete Interrupts */
+      /* Disable the QSPI FIFO Threshold, Transfer Error and Transfer
+       * complete Interrupts
+       */
 
-    regval  = qspi_getreg(&g_qspi0dev, STM32L4_QUADSPI_CR_OFFSET);
-    regval &= ~(QSPI_CR_TEIE | QSPI_CR_TCIE | QSPI_CR_FTIE);
-    qspi_putreg(&g_qspi0dev, regval, STM32L4_QUADSPI_CR_OFFSET);
+      regval  = qspi_getreg(&g_qspi0dev, STM32L4_QUADSPI_CR_OFFSET);
+      regval &= ~(QSPI_CR_TEIE | QSPI_CR_TCIE | QSPI_CR_FTIE);
+      qspi_putreg(&g_qspi0dev, regval, STM32L4_QUADSPI_CR_OFFSET);
 
-    /* Do the last bit of read if needed */
+      /* Do the last bit of read if needed */
 
-    if (g_qspi0dev.xctn->function == CCR_FMODE_INDRD)
-      {
-        volatile uint32_t *datareg = (volatile uint32_t *)
-          (g_qspi0dev.base + STM32L4_QUADSPI_DR_OFFSET);
+      if (g_qspi0dev.xctn->function == CCR_FMODE_INDRD)
+        {
+          volatile uint32_t *datareg = (volatile uint32_t *)
+            (g_qspi0dev.base + STM32L4_QUADSPI_DR_OFFSET);
 
-        /* Read any remaining data */
+          /* Read any remaining data */
 
-        while (((regval = qspi_getreg(&g_qspi0dev, STM32L4_QUADSPI_SR_OFFSET)) &
-               QSPI_SR_FLEVEL_MASK) != 0)
-          {
-            if (g_qspi0dev.xctn->idxnow < g_qspi0dev.xctn->datasize)
-              {
-                ((uint8_t *)g_qspi0dev.xctn->buffer)[g_qspi0dev.xctn->idxnow] =
-                  *(volatile uint8_t *)datareg;
-                ++g_qspi0dev.xctn->idxnow;
-              }
-            else
-              {
-                /* No room at the inn */
+          while (((regval = qspi_getreg(&g_qspi0dev,
+                                        STM32L4_QUADSPI_SR_OFFSET)) &
+                 QSPI_SR_FLEVEL_MASK) != 0)
+            {
+              if (g_qspi0dev.xctn->idxnow < g_qspi0dev.xctn->datasize)
+                {
+                  ((uint8_t *)g_qspi0dev.xctn->buffer)
+                    [g_qspi0dev.xctn->idxnow] =
+                    *(volatile uint8_t *)datareg;
+                  ++g_qspi0dev.xctn->idxnow;
+                }
+              else
+                {
+                  /* No room at the inn */
 
-                break;
-              }
-          }
-      }
+                  break;
+                }
+            }
+        }
 
-    /* Use 'abort' to ditch any stray fifo contents and clear BUSY flag */
+      /* Use 'abort' to ditch any stray fifo contents and clear BUSY flag */
 
-    qspi_abort(&g_qspi0dev);
+      qspi_abort(&g_qspi0dev);
 
-    /* Set success status */
+      /* Set success status */
 
-    g_qspi0dev.xctn->disposition = OK;
+      g_qspi0dev.xctn->disposition = OK;
 
-    /* Signal complete */
+      /* Signal complete */
 
-    nxsem_post(&g_qspi0dev.op_sem);
-  }
+      nxsem_post(&g_qspi0dev.op_sem);
+    }
 
   /* Is it 'Status Match'? */
 
@@ -1207,7 +1226,9 @@ static int qspi0_interrupt(int irq, void *context, FAR void *arg)
         }
       else
         {
-          /* XXX if it's NOT auto stop; something needs to happen here; a callback? */
+          /* XXX if it's NOT auto stop; something needs to happen here;
+           * a callback?
+           */
         }
     }
 
@@ -1222,7 +1243,8 @@ static int qspi0_interrupt(int irq, void *context, FAR void *arg)
       /* Disable all the QSPI Interrupts */
 
       regval  = qspi_getreg(&g_qspi0dev, STM32L4_QUADSPI_CR_OFFSET);
-      regval &= ~(QSPI_CR_TEIE | QSPI_CR_TCIE | QSPI_CR_FTIE | QSPI_CR_SMIE | QSPI_CR_TOIE);
+      regval &= ~(QSPI_CR_TEIE | QSPI_CR_TCIE | QSPI_CR_FTIE | QSPI_CR_SMIE |
+                  QSPI_CR_TOIE);
       qspi_putreg(&g_qspi0dev, regval, STM32L4_QUADSPI_CR_OFFSET);
 
       /* Set error status; 'transfer error' means that, in 'indirect mode',
@@ -1271,8 +1293,7 @@ static int qspi0_interrupt(int irq, void *context, FAR void *arg)
  *   DMA.
  *
  * Input Parameters:
- *   argc   - The number of arguments (should be 1)
- *   arg    - The argument (state structure reference cast to uint32_t)
+ *   arg    - The argument
  *
  * Returned Value:
  *   None
@@ -1282,7 +1303,7 @@ static int qspi0_interrupt(int irq, void *context, FAR void *arg)
  *
  ****************************************************************************/
 
-static void qspi_dma_timeout(int argc, uint32_t arg)
+static void qspi_dma_timeout(wdparm_t arg)
 {
   struct stm32l4_qspidev_s *priv = (struct stm32l4_qspidev_s *)arg;
   DEBUGASSERT(priv != NULL);
@@ -1325,7 +1346,7 @@ static void qspi_dma_callback(DMA_HANDLE handle, uint8_t isr, void *arg)
 
   /* Cancel the watchdog timeout */
 
-  (void)wd_cancel(priv->dmadog);
+  wd_cancel(&priv->dmadog);
 
   /* Sample DMA registers at the time of the callback */
 
@@ -1337,7 +1358,9 @@ static void qspi_dma_callback(DMA_HANDLE handle, uint8_t isr, void *arg)
 
   if (priv->result == -EBUSY)
     {
-      /* Save the result of the transfer if no error was previously reported */
+      /* Save the result of the transfer if no error was previously
+       * reported
+       */
 
       if (isr & DMA_CHAN_TCIF_BIT)
         {
@@ -1417,7 +1440,8 @@ static int qspi_memory_dma(struct stm32l4_qspidev_s *priv,
                   DMA_CCR_MINC);
     }
 
-  stm32l4_dmasetup(priv->dmach, qspi_regaddr(priv, STM32L4_QUADSPI_DR_OFFSET),
+  stm32l4_dmasetup(priv->dmach, qspi_regaddr(priv,
+                                             STM32L4_QUADSPI_DR_OFFSET),
                  (uint32_t)meminfo->buffer, meminfo->buflen, dmaflags);
 
   qspi_dma_sample(priv, DMA_AFTER_SETUP);
@@ -1452,8 +1476,8 @@ static int qspi_memory_dma(struct stm32l4_qspidev_s *priv,
     {
       /* Start (or re-start) the watchdog timeout */
 
-      ret = wd_start(priv->dmadog, DMA_TIMEOUT_TICKS,
-                     (wdentry_t)qspi_dma_timeout, 1, (uint32_t)priv);
+      ret = wd_start(&priv->dmadog, DMA_TIMEOUT_TICKS,
+                     qspi_dma_timeout, (wdparm_t)priv);
       if (ret < 0)
         {
            spierr("ERROR: wd_start failed: %d\n", ret);
@@ -1461,28 +1485,21 @@ static int qspi_memory_dma(struct stm32l4_qspidev_s *priv,
 
       /* Wait for the DMA complete */
 
-      ret = nxsem_wait(&priv->dmawait);
+      ret = nxsem_wait_uninterruptible(&priv->dmawait);
 
       /* Cancel the watchdog timeout */
 
-      (void)wd_cancel(priv->dmadog);
+      wd_cancel(&priv->dmadog);
 
       /* Check if we were awakened by an error of some kind */
 
       if (ret < 0)
         {
-          /* EINTR is not a failure.  That simply means that the wait
-           * was awakened by a signal.
-           */
-
-          if (ret != -EINTR)
-            {
-              DEBUGPANIC();
-              regval = qspi_getreg(priv, STM32L4_QUADSPI_CR_OFFSET);
-              regval &= ~QSPI_CR_DMAEN;
-              qspi_putreg(priv, regval, STM32L4_QUADSPI_CR_OFFSET);
-              return ret;
-            }
+          DEBUGPANIC();
+          regval = qspi_getreg(priv, STM32L4_QUADSPI_CR_OFFSET);
+          regval &= ~QSPI_CR_DMAEN;
+          qspi_putreg(priv, regval, STM32L4_QUADSPI_CR_OFFSET);
+          return ret;
         }
 
       /* Note that we might be awakened before the wait is over due to
@@ -1589,7 +1606,9 @@ static int qspi_receive_blocking(struct stm32l4_qspidev_s *priv,
           qspi_waitstatusflags(priv, QSPI_SR_TCF, 1);
           qspi_putreg(priv, QSPI_FCR_CTCF, STM32L4_QUADSPI_FCR);
 
-          /* Use Abort to clear the busy flag, and ditch any extra bytes in fifo */
+          /* Use Abort to clear the busy flag, and ditch any extra bytes in
+           * fifo
+           */
 
           qspi_abort(priv);
         }
@@ -1694,24 +1713,11 @@ static int qspi_lock(struct qspi_dev_s *dev, bool lock)
   spiinfo("lock=%d\n", lock);
   if (lock)
     {
-          /* Take the semaphore (perhaps waiting) */
-
-      do
-        {
-          ret = nxsem_wait(&priv->exclsem);
-
-          /* The only case that an error should occur here is if the wait
-           * was awakened by a signal.
-           */
-
-          DEBUGASSERT(ret == OK || ret == -EINTR);
-        }
-      while (ret == -EINTR);
+      ret = nxsem_wait_uninterruptible(&priv->exclsem);
     }
   else
     {
-      (void)nxsem_post(&priv->exclsem);
-      ret = OK;
+      ret = nxsem_post(&priv->exclsem);
     }
 
   return ret;
@@ -1756,7 +1762,9 @@ static uint32_t qspi_setfrequency(struct qspi_dev_s *dev, uint32_t frequency)
   qspi_abort(priv);
   qspi_waitstatusflags(priv, QSPI_SR_BUSY, 0);
 
-  /* Check if the requested frequency is the same as the frequency selection */
+  /* Check if the requested frequency is the same as the frequency
+   * selection
+   */
 
   if (priv->frequency == frequency)
     {
@@ -1771,8 +1779,8 @@ static uint32_t qspi_setfrequency(struct qspi_dev_s *dev, uint32_t frequency)
    *   QSCK frequency = STL32L4_QSPI_CLOCK / prescaler, or
    *     prescaler = STL32L4_QSPI_CLOCK / frequency
    *
-   * Where prescaler can have the range 1 to 256 and the STM32L4_QUADSPI_CR_OFFSET
-   * register field holds prescaler - 1.
+   * Where prescaler can have the range 1 to 256 and the
+   * STM32L4_QUADSPI_CR_OFFSET register field holds prescaler - 1.
    * NOTE that a "ceiling" type of calculation is performed.
    * 'frequency' is treated as a not-to-exceed value.
    */
@@ -1949,9 +1957,9 @@ static int qspi_command(struct qspi_dev_s *dev,
 
   ret = qspi_setupxctnfromcmd(&xctn, cmdinfo);
   if (OK != ret)
-  {
-    return ret;
-  }
+    {
+      return ret;
+    }
 
   /* Prepare for transaction */
 
@@ -1986,8 +1994,8 @@ static int qspi_command(struct qspi_dev_s *dev,
 
           qspi_ccrconfig(priv, &xctn, CCR_FMODE_INDWR);
 
-          /* Enable 'Transfer Error' 'FIFO Threshhold' and 'Transfer Complete'
-           * interrupts.
+          /* Enable 'Transfer Error' 'FIFO Threshhold' and 'Transfer
+           * Complete' interrupts.
            */
 
           regval  = qspi_getreg(priv, STM32L4_QUADSPI_CR_OFFSET);
@@ -2011,8 +2019,8 @@ static int qspi_command(struct qspi_dev_s *dev,
 
           qspi_putreg(priv, addrval, STM32L4_QUADSPI_AR_OFFSET);
 
-          /* Enable 'Transfer Error' 'FIFO Threshhold' and 'Transfer Complete'
-           * interrupts
+          /* Enable 'Transfer Error' 'FIFO Threshhold' and 'Transfer
+           * Complete' interrupts
            */
 
           regval  = qspi_getreg(priv, STM32L4_QUADSPI_CR_OFFSET);
@@ -2043,7 +2051,7 @@ static int qspi_command(struct qspi_dev_s *dev,
 
   /* Wait for the interrupt routine to finish it's magic */
 
-  (void)nxsem_wait(&priv->op_sem);
+  nxsem_wait(&priv->op_sem);
   MEMORY_SYNC();
 
   /* Convey the result */
@@ -2059,7 +2067,8 @@ static int qspi_command(struct qspi_dev_s *dev,
   /* Set up the Communications Configuration Register as per command info */
 
   qspi_ccrconfig(priv, &xctn,
-                 QSPICMD_ISWRITE(cmdinfo->flags) ? CCR_FMODE_INDWR : CCR_FMODE_INDRD);
+                 QSPICMD_ISWRITE(cmdinfo->flags) ? CCR_FMODE_INDWR
+                                                 : CCR_FMODE_INDRD);
 
   /* That may be it, unless there is also data to transfer */
 
@@ -2130,9 +2139,9 @@ static int qspi_memory(struct qspi_dev_s *dev,
 
   ret = qspi_setupxctnfrommem(&xctn, meminfo);
   if (OK != ret)
-  {
-    return ret;
-  }
+    {
+      return ret;
+    }
 
   /* Prepare for transaction */
 
@@ -2201,7 +2210,7 @@ static int qspi_memory(struct qspi_dev_s *dev,
 
   /* Wait for the interrupt routine to finish it's magic */
 
-  (void)nxsem_wait(&priv->op_sem);
+  nxsem_wait(&priv->op_sem);
   MEMORY_SYNC();
 
   /* convey the result */
@@ -2222,10 +2231,13 @@ static int qspi_memory(struct qspi_dev_s *dev,
     {
       /* polling mode */
 
-      /* Set up the Communications Configuration Register as per command info */
+      /* Set up the Communications Configuration Register as per command
+       * info
+       */
 
       qspi_ccrconfig(priv, &xctn,
-                     QSPIMEM_ISWRITE(meminfo->flags) ? CCR_FMODE_INDWR : CCR_FMODE_INDRD);
+                     QSPIMEM_ISWRITE(meminfo->flags) ? CCR_FMODE_INDWR
+                                                     : CCR_FMODE_INDRD);
 
       /* Transfer data */
 
@@ -2255,7 +2267,8 @@ static int qspi_memory(struct qspi_dev_s *dev,
   /* Set up the Communications Configuration Register as per command info */
 
   qspi_ccrconfig(priv, &xctn,
-                 QSPIMEM_ISWRITE(meminfo->flags) ? CCR_FMODE_INDWR : CCR_FMODE_INDRD);
+                 QSPIMEM_ISWRITE(meminfo->flags) ? CCR_FMODE_INDWR
+                                                 : CCR_FMODE_INDRD);
 
   /* Transfer data */
 
@@ -2294,7 +2307,7 @@ static int qspi_memory(struct qspi_dev_s *dev,
  *   buflen - Buffer length to allocate in bytes
  *
  * Returned Value:
- *   Address of tha allocated memory on success; NULL is returned on any
+ *   Address of the allocated memory on success; NULL is returned on any
  *   failure.
  *
  ****************************************************************************/
@@ -2365,12 +2378,14 @@ static int qspi_hw_initialize(struct stm32l4_qspidev_s *priv)
   /* Disable all interrupt sources for starters */
 
   regval  = qspi_getreg(priv, STM32L4_QUADSPI_CR_OFFSET);
-  regval &= ~(QSPI_CR_TEIE | QSPI_CR_TCIE | QSPI_CR_FTIE | QSPI_CR_SMIE | QSPI_CR_TOIE);
+  regval &= ~(QSPI_CR_TEIE | QSPI_CR_TCIE | QSPI_CR_FTIE | QSPI_CR_SMIE |
+              QSPI_CR_TOIE);
 
   /* Configure QSPI FIFO Threshold */
 
   regval &= ~(QSPI_CR_FTHRES_MASK);
-  regval |= ((CONFIG_STM32L4_QSPI_FIFO_THESHOLD-1) << QSPI_CR_FTHRES_SHIFT);
+  regval |= ((CONFIG_STM32L4_QSPI_FIFO_THESHOLD - 1) <<
+             QSPI_CR_FTHRES_SHIFT);
   qspi_putreg(priv, regval, STM32L4_QUADSPI_CR_OFFSET);
 
   /* Wait till BUSY flag reset */
@@ -2390,17 +2405,18 @@ static int qspi_hw_initialize(struct stm32l4_qspidev_s *priv)
   regval  = qspi_getreg(priv, STM32L4_QUADSPI_DCR_OFFSET);
   regval &= ~(QSPI_DCR_CKMODE | QSPI_DCR_CSHT_MASK | QSPI_DCR_FSIZE_MASK);
   regval |= (0x00);
-  regval |= ((CONFIG_STM32L4_QSPI_CSHT-1) << QSPI_DCR_CSHT_SHIFT);
+  regval |= ((CONFIG_STM32L4_QSPI_CSHT - 1) << QSPI_DCR_CSHT_SHIFT);
   if (0 != CONFIG_STM32L4_QSPI_FLASH_SIZE)
     {
-      unsigned int nSize = CONFIG_STM32L4_QSPI_FLASH_SIZE;
-      int nLog2Size = 31;
-      while (!(nSize & 0x80000000))
+      unsigned int nsize = CONFIG_STM32L4_QSPI_FLASH_SIZE;
+      int nlog2size = 31;
+      while (!(nsize & 0x80000000))
         {
-          --nLog2Size;
-          nSize <<= 1;
+          --nlog2size;
+          nsize <<= 1;
         }
-      regval |= ((nLog2Size-1) << QSPI_DCR_FSIZE_SHIFT);
+
+      regval |= ((nlog2size - 1) << QSPI_DCR_FSIZE_SHIFT);
     }
 
   qspi_putreg(priv, regval, STM32L4_QUADSPI_DCR_OFFSET);
@@ -2523,16 +2539,7 @@ struct qspi_dev_s *stm32l4_qspi_initialize(int intf)
        */
 
       nxsem_init(&priv->dmawait, 0, 0);
-      nxsem_setprotocol(&priv->dmawait, SEM_PRIO_NONE);
-
-      /* Create a watchdog time to catch DMA timeouts */
-
-      priv->dmadog = wd_create();
-      if (priv->dmadog == NULL)
-        {
-          spierr("ERROR: Failed to create wdog\n");
-          goto errout_with_dmahandles;
-        }
+      nxsem_set_protocol(&priv->dmawait, SEM_PRIO_NONE);
 #endif
 
 #ifdef STM32L4_QSPI_INTERRUPTS
@@ -2542,7 +2549,7 @@ struct qspi_dev_s *stm32l4_qspi_initialize(int intf)
       if (ret < 0)
         {
           spierr("ERROR: Failed to attach irq %d\n", priv->irq);
-          goto errout_with_dmadog;
+          goto errout_with_dmawait;
         }
 
       /* Initialize the semaphore that blocks until the operation completes.
@@ -2551,7 +2558,7 @@ struct qspi_dev_s *stm32l4_qspi_initialize(int intf)
        */
 
       nxsem_init(&priv->op_sem, 0, 0);
-      nxsem_setprotocol(&priv->op_sem, SEM_PRIO_NONE);
+      nxsem_set_protocol(&priv->op_sem, SEM_PRIO_NONE);
 #endif
 
       /* Perform hardware initialization.  Puts the QSPI into an active
@@ -2580,14 +2587,10 @@ errout_with_irq:
 #ifdef STM32L4_QSPI_INTERRUPTS
   irq_detach(priv->irq);
 
-errout_with_dmadog:
+errout_with_dmawait:
 #endif
 #ifdef CONFIG_STM32L4_QSPI_DMA
-  wd_delete(priv->dmadog);
-
-errout_with_dmahandles:
   nxsem_destroy(&priv->dmawait);
-
   if (priv->dmach)
     {
       stm32l4_dmafree(priv->dmach);

@@ -6,6 +6,7 @@ This port uses an instruction set simulator called z80sim.
 
 The SDCC toolchain is available from http://sdcc.sourceforge.net/.  All
 testing has been performed using version 2.6.0 of the SDCC toolchain.
+IMPORTANT: See notes in the SDCC section.
 
 Contents
 ^^^^^^^^
@@ -119,7 +120,7 @@ All of the z80 configurations in this this directory are set up to build
 under Linux.  That configuration can be converted to run natively in a
 Windows CMD.exe shell.  That configuration requires the MinGW host compiler
 and several GNUWin32 tools (see discussion in the top-level NuttX/README.txt
-file) and the following changes to the configuation file:
+file) and the following changes to the configuration file:
 
   -CONFIG_HOST_LINUX=y
   +CONFIG_HOST_WINDOWS=y
@@ -137,6 +138,14 @@ or custom built for Cygwin (see below).
 
 SDCC
 ^^^^
+
+IMPORTANT NOTE as of 2020-4-11:  Support for CONFIG_CAN_PASS_STRUCTS was
+removed in NuttX-9.1.  This was necessary to enforce some POSIX interface
+compliance but also means that ALL older SDCC versions will no long build
+with NuttX.  I have been told that the newest SDCC compilers can indeed
+pass structure and union parameters and return values.  If that is correct,
+then perhaps the newer SDCC compilers will be used.  Otherwise, it will be
+necessary to use some other, more compliant compiler.
 
 These z80 configurations all use the SDCC toolchain (http://sdcc.sourceforge.net/).
 Source and pre-built SDCC binaries can be downloaded from the SDCC SourceForge
@@ -190,4 +199,3 @@ Known compilation problems:
   Workaround: Remove lib_strtof.c from libs/libc/stdlib/Make.defs
 
   In arch/z80/src/z180:  error 26: '_cbr' not a structure/union member
-

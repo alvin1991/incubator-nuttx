@@ -38,29 +38,9 @@
  ****************************************************************************/
 
 #include <stdint.h>
-#include <pthread.h>
-
-/****************************************************************************
- * Pre-processor Definitions
- ****************************************************************************/
-/* Must match definitions in arch/sim/include/spinlock.h */
-
-#define SP_UNLOCKED 0   /* The Un-locked state */
-#define SP_LOCKED   1   /* The Locked state */
-
-/****************************************************************************
- * Public Types
- ****************************************************************************/
-/* Must match definitions in arch/sim/include/spinlock.h */
-
-typedef uint8_t spinlock_t;
-
-/****************************************************************************
- * Private Data
- ****************************************************************************/
 
 #ifdef CONFIG_SMP
-static pthread_mutex_t g_tsmutex = PTHREAD_MUTEX_INITIALIZER;
+#  include <stdatomic.h>
 #endif
 
 /****************************************************************************
@@ -87,25 +67,22 @@ static pthread_mutex_t g_tsmutex = PTHREAD_MUTEX_INITIALIZER;
  *
  ****************************************************************************/
 
-spinlock_t up_testset(volatile spinlock_t *lock)
+uint8_t up_testset(volatile uint8_t *lock)
 {
 #ifdef CONFIG_SMP
-  /* In the multi-CPU SMP case, we use a mutex to assure that the following
-   * test and set is atomic.
+  /* In the multi-CPU SMP case, we use atomic operation to assure that the
+   * following test and set is atomic.
    */
 
-  (void)pthread_mutex_lock(&g_tsmutex);
-#endif
+  return atomic_exchange(lock, 1);
+#else
 
   /* In the non-SMP case, the simulation is implemented with a single thread
    * the test-and-set operation is inherently atomic.
    */
 
-  spinlock_t ret = *lock;
-  *lock = SP_LOCKED;
-
-#ifdef CONFIG_SMP
-  (void)pthread_mutex_unlock(&g_tsmutex);
-#endif
+  uint8_t ret = *lock;
+  *lock = 1;
   return ret;
+#endif
 }

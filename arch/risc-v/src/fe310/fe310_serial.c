@@ -53,8 +53,8 @@
 
 #include <arch/board/board.h>
 
-#include "up_arch.h"
-#include "up_internal.h"
+#include "riscv_arch.h"
+#include "riscv_internal.h"
 
 #include "fe310_config.h"
 #include "chip.h"
@@ -280,7 +280,7 @@ static int up_setup(struct uart_dev_s *dev)
 
   up_serialout(priv, UART_RXCTL_OFFSET, 1);
 
-  /* Set TX watermark levl to 1 Enable TX */
+  /* Set TX watermark level to 1 Enable TX */
 
   up_serialout(priv, UART_TXCTL_OFFSET, 1 << 16 | 1);
 
@@ -309,7 +309,7 @@ static void up_shutdown(struct uart_dev_s *dev)
  * Name: up_attach
  *
  * Description:
- *   Configure the UART to operation in interrupt driven mode.  This method is
+ *   Configure the UART to operation in interrupt driven mode. This method is
  *   called when the serial port is opened.  Normally, this is just after the
  *   the setup() method is called, however, the serial console may operate in
  *   a non-interrupt driven mode during the boot phase.
@@ -348,7 +348,7 @@ static int up_attach(struct uart_dev_s *dev)
  *
  * Description:
  *   Detach UART interrupts.  This method is called when the serial port is
- *   closed normally just before the shutdown method is called.  The exception
+ *   closed normally just before the shutdown method is called. The exception
  *   is the serial console which is never shutdown.
  *
  ****************************************************************************/
@@ -374,7 +374,7 @@ static void up_detach(struct uart_dev_s *dev)
  *   interrupt received on the 'irq'  It should call uart_transmitchars or
  *   uart_receivechar to perform the appropriate data transfers.  The
  *   interrupt handling logic must be able to map the 'irq' number into the
- *   approprite uart_dev_s structure in order to call these functions.
+ *   appropriate uart_dev_s structure in order to call these functions.
  *
  ****************************************************************************/
 
@@ -398,6 +398,11 @@ static int up_interrupt(int irq, void *context, FAR void *arg)
 
       status = up_serialin(priv, UART_IP_OFFSET);
 
+      if (status == 0)
+        {
+          break;
+        }
+
       if (status & UART_IP_RXWM)
         {
           /* Process incoming bytes */
@@ -405,9 +410,12 @@ static int up_interrupt(int irq, void *context, FAR void *arg)
           uart_recvchars(dev);
         }
 
-      /* Process outgoing bytes */
+      if (status & UART_IP_TXWM)
+        {
+          /* Process outgoing bytes */
 
-      uart_xmitchars(dev);
+          uart_xmitchars(dev);
+        }
     }
 
   return OK;
@@ -593,6 +601,8 @@ static bool up_txempty(struct uart_dev_s *dev)
  * Public Functions
  ****************************************************************************/
 
+#ifdef USE_EARLYSERIALINIT
+
 /****************************************************************************
  * Name: up_earlyserialinit
  *
@@ -623,6 +633,7 @@ void up_earlyserialinit(void)
   up_setup(&CONSOLE_DEV);
 #endif
 }
+#endif
 
 /****************************************************************************
  * Name: up_serialinit
@@ -638,14 +649,14 @@ void up_serialinit(void)
   /* Register the console */
 
 #ifdef HAVE_SERIAL_CONSOLE
-  (void)uart_register("/dev/console", &CONSOLE_DEV);
+  uart_register("/dev/console", &CONSOLE_DEV);
 #endif
 
   /* Register all UARTs */
 
-  (void)uart_register("/dev/ttyS0", &TTYS0_DEV);
+  uart_register("/dev/ttyS0", &TTYS0_DEV);
 #ifdef TTYS1_DEV
-  (void)uart_register("/dev/ttyS1", &TTYS1_DEV);
+  uart_register("/dev/ttyS1", &TTYS1_DEV);
 #endif
 }
 
@@ -734,4 +745,3 @@ int up_putc(int ch)
 }
 
 #endif /* USE_SERIALDRIVER */
-

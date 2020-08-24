@@ -102,6 +102,10 @@ const struct sock_intf_s g_icmpv6_sockif =
   NULL,               /* si_sendfile */
 #endif
   icmpv6_recvfrom,    /* si_recvfrom */
+#ifdef CONFIG_NET_CMSG
+  NULL,               /* si_recvmsg */
+  NULL,               /* si_sendmsg */
+#endif
   icmpv6_close        /* si_close */
 };
 
@@ -189,7 +193,7 @@ static sockcaps_t icmpv6_sockcaps(FAR struct socket *psock)
  * Name: icmpv6_addref
  *
  * Description:
- *   Increment the refernce count on the underlying connection structure.
+ *   Increment the reference count on the underlying connection structure.
  *
  * Input Parameters:
  *   psock - Socket structure of the socket whose reference count will be
@@ -238,7 +242,7 @@ static void icmpv6_addref(FAR struct socket *psock)
  *   addrlen   Length of actual 'addr'
  *
  * Returned Value:
- *   0 on success; a negated errno value on failue.  See connect() for the
+ *   0 on success; a negated errno value on failure.  See connect() for the
  *   list of appropriate errno values to be returned.
  *
  ****************************************************************************/
@@ -280,12 +284,13 @@ static int icmpv6_connect(FAR struct socket *psock,
  * Input Parameters:
  *   psock    Reference to the listening socket structure
  *   addr     Receives the address of the connecting client
- *   addrlen  Input: allocated size of 'addr', Return: returned size of 'addr'
+ *   addrlen  Input: allocated size of 'addr',
+ *            Return: returned size of 'addr'
  *   newsock  Location to return the accepted socket information.
  *
  * Returned Value:
  *   Returns 0 (OK) on success.  On failure, it returns a negated errno
- *   value.  See accept() for a desrciption of the approriate error value.
+ *   value.  See accept() for a desrciption of the appropriate error value.
  *
  * Assumptions:
  *   The network is locked.
@@ -318,8 +323,9 @@ static int icmpv6_accept(FAR struct socket *psock, FAR struct sockaddr *addr,
  *
  ****************************************************************************/
 
-static int icmpv6_bind(FAR struct socket *psock, FAR const struct sockaddr *addr,
-                     socklen_t addrlen)
+static int icmpv6_bind(FAR struct socket *psock,
+                       FAR const struct sockaddr *addr,
+                       socklen_t addrlen)
 {
   /* An ICMPv6 socket cannot be bound to a local address */
 
@@ -330,10 +336,10 @@ static int icmpv6_bind(FAR struct socket *psock, FAR const struct sockaddr *addr
  * Name: icmpv6_getsockname
  *
  * Description:
- *   The icmpv6_getsockname() function retrieves the locally-bound name of the
- *   specified packet socket, stores this address in the sockaddr structure
- *   pointed to by the 'addr' argument, and stores the length of this
- *   address in the object pointed to by the 'addrlen' argument.
+ *   The icmpv6_getsockname() function retrieves the locally-bound name of
+ *   the specified packet socket, stores this address in the sockaddr
+ *   structure pointed to by the 'addr' argument, and stores the length of
+ *   this address in the object pointed to by the 'addrlen' argument.
  *
  *   If the actual length of the address is greater than the length of the
  *   supplied sockaddr structure, the stored address will be truncated.
@@ -364,10 +370,10 @@ static int icmpv6_getsockname(FAR struct socket *psock,
  * Name: icmpv6_getpeername
  *
  * Description:
- *   The icmpv6_getpeername() function retrieves the remote-connected name of the
- *   specified packet socket, stores this address in the sockaddr structure
- *   pointed to by the 'addr' argument, and stores the length of this
- *   address in the object pointed to by the 'addrlen' argument.
+ *   The icmpv6_getpeername() function retrieves the remote-connected name of
+ *   the specified packet socket, stores this address in the sockaddr
+ *   structure pointed to by the 'addr' argument, and stores the length of
+ *   this address in the object pointed to by the 'addrlen' argument.
  *
  *   If the actual length of the address is greater than the length of the
  *   supplied sockaddr structure, the stored address will be truncated.
@@ -445,7 +451,6 @@ int icmpv6_listen(FAR struct socket *psock, int backlog)
 static int icmpv6_netpoll(FAR struct socket *psock, FAR struct pollfd *fds,
                         bool setup)
 {
-#ifdef CONFIG_MM_IOB
   /* Check if we are setting up or tearing down the poll */
 
   if (setup)
@@ -460,9 +465,6 @@ static int icmpv6_netpoll(FAR struct socket *psock, FAR struct pollfd *fds,
 
       return icmpv6_pollteardown(psock, fds);
     }
-#else
-  return -ENOSYS;
-#endif /* CONFIG_MM_IOB */
 }
 
 /****************************************************************************
@@ -487,8 +489,8 @@ static int icmpv6_netpoll(FAR struct socket *psock, FAR struct pollfd *fds,
 static ssize_t icmpv6_send(FAR struct socket *psock, FAR const void *buf,
                         size_t len, int flags)
 {
-  /* ICMPv6 sockets cannot be bound and, hence, cannot support any connection-
-   * oriented data transfer.
+  /* ICMPv6 sockets cannot be bound and, hence, cannot support any
+   * connection-oriented data transfer.
    */
 
   return -EDESTADDRREQ;

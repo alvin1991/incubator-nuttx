@@ -81,6 +81,31 @@ int epoll_create(int size)
 }
 
 /****************************************************************************
+ * Name: epoll_create1
+ *
+ * Description:
+ *
+ * Input Parameters:
+ *
+ * Returned Value:
+ *
+ ****************************************************************************/
+
+int epoll_create1(int flags)
+{
+  /* For current implementation, Close-on-exec is a default behavior,
+   * the handle of epoll(2) is not a real file handle.
+   */
+
+  if (flags != EPOLL_CLOEXEC)
+    {
+      return EINVAL;
+    }
+
+  return epoll_create(CONFIG_FS_NEPOLL_DESCRIPTORS);
+}
+
+/****************************************************************************
  * Name: epoll_close
  *
  * Description:
@@ -220,7 +245,12 @@ int epoll_wait(int epfd, FAR struct epoll_event *evs, int maxevents,
 
   /* Iterate over non NULL event fds */
 
-  for (i = 0, counter = 0; i < rc && counter < eph->size; counter++)
+  if (rc > maxevents)
+    {
+      rc = maxevents;
+    }
+
+  for (i = 0, counter = 0; i < rc && counter < eph->occupied; counter++)
     {
       if (eph->evs[counter].revents != 0)
         {
@@ -232,4 +262,3 @@ int epoll_wait(int epfd, FAR struct epoll_event *evs, int maxevents,
 
   return i;
 }
-

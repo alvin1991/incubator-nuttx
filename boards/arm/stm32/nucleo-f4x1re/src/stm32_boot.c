@@ -47,7 +47,7 @@
 
 #include <arch/board/board.h>
 
-#include "up_arch.h"
+#include "arm_arch.h"
 #include "nucleo-f4x1re.h"
 
 #include <nuttx/board.h>
@@ -110,6 +110,6 @@ void board_late_initialize(void)
 {
   /* Perform board initialization here instead of from the board_app_initialize(). */
 
-  (void)stm32_bringup();
+  stm32_bringup();
 }
 #endif

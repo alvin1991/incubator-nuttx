@@ -3,23 +3,47 @@
 # see the file kconfig-language.txt in the NuttX tools repository.
 #
 
-config VIDEO_FB
-	bool "Framebuffer character driver"
+config FB_CMAP
+	bool
+	default n
+	---help---
+		Set by driver-specific configuration to indicate support for color
+		mapping.  Not directly user selectable.
+
+config FB_TRANSPARENCY
+	bool
+	default n
+	---help---
+		Set by driver-specific configuration to indicate support for color
+		transparency.  Not directly user selectable.
+
+config FB_UPDATE
+	bool
 	default n
 
 config FB_SYNC
 	bool "Hardware signals vertical sync"
-	depends on VIDEO_FB
 	default n
 
 config FB_OVERLAY
 	bool "Framebuffer overlay support"
-	depends on VIDEO_FB
 	default n
 
 config FB_OVERLAY_BLIT
 	bool "Framebuffer overlay blit support"
 	depends on FB_OVERLAY
+	default n
+
+menuconfig DRIVERS_VIDEO
+	bool "Video Device Support"
+	default n
+	---help---
+		Enable support for video device drivers.
+
+if DRIVERS_VIDEO
+
+config VIDEO_FB
+	bool "Framebuffer character driver"
 	default n
 
 config VIDEO_STREAM
@@ -35,11 +59,6 @@ config VIDEO_MAX7456
 	---help---
 		Support for the Maxim 7456 monochrome on-screen display
 		multiplexer.
-
-config VIDEO_ISX012
-	bool "ISX012 Image sensor"
-	default n
-	select I2C
 
 config VIDEO_OV2640
 	bool "OV2640 camera chip"
@@ -147,3 +166,5 @@ config OV2640_REGDEBUG
 		Enable details, register level debug output.
 
 endif
+
+endif # DRIVERS_VIDEO

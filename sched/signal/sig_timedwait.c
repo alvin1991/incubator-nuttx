@@ -87,28 +87,12 @@
  *
  ****************************************************************************/
 
-static void nxsig_timeout(int argc, wdparm_t itcb)
+static void nxsig_timeout(wdparm_t arg)
 {
+  FAR struct tcb_s *wtcb = (FAR struct tcb_s *)(uintptr_t)arg;
 #ifdef CONFIG_SMP
   irqstate_t flags;
-#endif
 
-  /* On many small machines, pointers are encoded and cannot be simply cast
-   * from uint32_t to struct tcb_s *.  The following union works around this
-   * (see wdogparm_t).  This odd logic could be conditioned on
-   * CONFIG_CAN_CAST_POINTERS, but it is not too bad in any case.
-   */
-
-  union
-  {
-    FAR struct tcb_s *wtcb;
-    wdparm_t itcb;
-  } u;
-
-  u.itcb = itcb;
-  DEBUGASSERT(u.wtcb);
-
-#ifdef CONFIG_SMP
   /* We must be in a critical section in order to call up_unblock_task()
    * below.  If we are running on a single CPU architecture, then we know
    * interrupts a disabled an there is no need to explicitly call
@@ -125,17 +109,17 @@ static void nxsig_timeout(int argc, wdparm_t itcb)
    * still waiting for a signal
    */
 
-  if (u.wtcb->task_state == TSTATE_WAIT_SIG)
+  if (wtcb->task_state == TSTATE_WAIT_SIG)
     {
-      u.wtcb->sigunbinfo.si_signo           = SIG_WAIT_TIMEOUT;
-      u.wtcb->sigunbinfo.si_code            = SI_TIMER;
-      u.wtcb->sigunbinfo.si_errno           = ETIMEDOUT;
-      u.wtcb->sigunbinfo.si_value.sival_int = 0;
+      wtcb->sigunbinfo.si_signo           = SIG_WAIT_TIMEOUT;
+      wtcb->sigunbinfo.si_code            = SI_TIMER;
+      wtcb->sigunbinfo.si_errno           = ETIMEDOUT;
+      wtcb->sigunbinfo.si_value.sival_int = 0;
 #ifdef CONFIG_SCHED_HAVE_PARENT
-      u.wtcb->sigunbinfo.si_pid             = 0;  /* Not applicable */
-      u.wtcb->sigunbinfo.si_status          = OK;
+      wtcb->sigunbinfo.si_pid             = 0;  /* Not applicable */
+      wtcb->sigunbinfo.si_status          = OK;
 #endif
-      up_unblock_task(u.wtcb);
+      up_unblock_task(wtcb);
     }
 
 #ifdef CONFIG_SMP
@@ -247,7 +231,7 @@ int nxsig_timedwait(FAR const sigset_t *set, FAR struct siginfo *info,
   int32_t waitticks;
   int ret;
 
-  DEBUGASSERT(set != NULL && rtcb->waitdog == NULL);
+  DEBUGASSERT(set != NULL);
 
   /* Several operations must be performed below:  We must determine if any
    * signal is pending and, if not, wait for the signal.  Since signals can
@@ -269,7 +253,8 @@ int nxsig_timedwait(FAR const sigset_t *set, FAR struct siginfo *info,
        * pending.
        */
 
-      sigpend = nxsig_remove_pendingsignal(rtcb, nxsig_lowest(&intersection));
+      sigpend = nxsig_remove_pendingsignal(rtcb,
+                                           nxsig_lowest(&intersection));
       DEBUGASSERT(sigpend);
 
       /* Return the signal info to the caller if so requested */
@@ -325,7 +310,8 @@ int nxsig_timedwait(FAR const sigset_t *set, FAR struct siginfo *info,
 
 #ifdef CONFIG_HAVE_LONG_LONG
           uint64_t waitticks64 = ((uint64_t)timeout->tv_sec * NSEC_PER_SEC +
-                                  (uint64_t)timeout->tv_nsec + NSEC_PER_TICK - 1) /
+                                  (uint64_t)timeout->tv_nsec +
+                                  NSEC_PER_TICK - 1) /
                                  NSEC_PER_TICK;
           DEBUGASSERT(waitticks64 <= UINT32_MAX);
           waitticks = (uint32_t)waitticks64;
@@ -338,43 +324,22 @@ int nxsig_timedwait(FAR const sigset_t *set, FAR struct siginfo *info,
           waitticks = MSEC2TICK(waitmsec);
 #endif
 
-          /* Create a watchdog */
+          /* Start the watchdog */
 
-          rtcb->waitdog = wd_create();
-          DEBUGASSERT(rtcb->waitdog);
+          wd_start(&rtcb->waitdog, waitticks,
+                   nxsig_timeout, (uintptr_t)rtcb);
 
-          if (rtcb->waitdog)
-            {
-              /* This little bit of nonsense is necessary for some
-               * processors where sizeof(pointer) < sizeof(uint32_t).
-               * see wdog.h.
-               */
-
-              union wdparm_u wdparm;
-              wdparm.pvarg = (FAR void *)rtcb;
-
-              /* Start the watchdog */
-
-              (void)wd_start(rtcb->waitdog, waitticks,
-                             (wdentry_t)nxsig_timeout, 1, wdparm.pvarg);
-
-              /* Now wait for either the signal or the watchdog, but
-               * first, make sure this is not the idle task,
-               * descheduling that isn't going to end well.
-               */
-
-              DEBUGASSERT(NULL != rtcb->flink);
-              up_block_task(rtcb, TSTATE_WAIT_SIG);
-
-              /* We no longer need the watchdog */
-
-              wd_delete(rtcb->waitdog);
-              rtcb->waitdog = NULL;
-            }
-
-          /* REVISIT: And do what if there are no watchdog timers?  The wait
-           * will fail and we will return something bogus.
+          /* Now wait for either the signal or the watchdog, but
+           * first, make sure this is not the idle task,
+           * descheduling that isn't going to end well.
            */
+
+          DEBUGASSERT(NULL != rtcb->flink);
+          up_block_task(rtcb, TSTATE_WAIT_SIG);
+
+          /* We no longer need the watchdog */
+
+          wd_cancel(&rtcb->waitdog);
         }
 
       /* No timeout, just wait */
@@ -400,11 +365,11 @@ int nxsig_timedwait(FAR const sigset_t *set, FAR struct siginfo *info,
 
       if (GOOD_SIGNO(rtcb->sigunbinfo.si_signo))
         {
-          /* We were awakened by a signal... but is it one of the signals that
-           * we were waiting for?
+          /* We were awakened by a signal... but is it one of the signals
+           * that we were waiting for?
            */
 
-          if (sigismember(set, rtcb->sigunbinfo.si_signo))
+          if (nxsig_ismember(set, rtcb->sigunbinfo.si_signo))
             {
               /* Yes.. the return value is the number of the signal that
                * awakened us.
@@ -506,7 +471,7 @@ int sigtimedwait(FAR const sigset_t *set, FAR struct siginfo *info,
 
   /* sigtimedwait() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
   /* Let nxsig_timedwait() do the work. */
 

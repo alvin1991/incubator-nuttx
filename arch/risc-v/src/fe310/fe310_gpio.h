@@ -43,7 +43,7 @@
 #include <nuttx/config.h>
 #include <stdint.h>
 
-#include "up_internal.h"
+#include "riscv_internal.h"
 #include "chip.h"
 
 /****************************************************************************
@@ -157,7 +157,7 @@
 #define GPIO_PIN23            (23 << GPIO_PIN_SHIFT)
 
 /****************************************************************************
- * Public Functions
+ * Public Functions Prototypes
  ****************************************************************************/
 
 #ifndef __ASSEMBLY__
@@ -202,4 +202,3 @@ EXTERN void fe310_gpio_clearpending(uint32_t pin);
 
 #endif /* __ASSEMBLY__ */
 #endif /* __ARCH_RISCV_SRC_FE310_FE310_GPIO_H */
-

@@ -33,7 +33,6 @@
  *
  ****************************************************************************/
 
-OUTPUT_FORMAT("elf32-lm32")
 ENTRY(_stext)
 
 MEMORY
@@ -96,4 +95,3 @@ SECTIONS
 }
 
 PROVIDE(_fstack = ORIGIN(main_ram) + LENGTH(main_ram) - 4);
-

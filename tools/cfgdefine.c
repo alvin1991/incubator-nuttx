@@ -49,49 +49,47 @@
  * Public Data
  ****************************************************************************/
 
-char line[LINESIZE+1];
+char line[LINESIZE + 1];
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
 
-/* These are configuration variable name that are quoted by configuration tool
- * but which must be unquoted when used in C code.
+/* These are configuration variable name that are quoted by configuration
+ * tool but which must be unquoted when used in C code.
  */
 
 static const char *dequote_list[] =
 {
   /* NuttX */
 
-  "CONFIG_USER_ENTRYPOINT",               /* Name of entry point function */
-  "CONFIG_EXECFUNCS_SYMTAB_ARRAY",        /* Symbol table array used by exec[l|v] */
+  "CONFIG_DEBUG_OPTLEVEL",                /* Custom debug level */
   "CONFIG_EXECFUNCS_NSYMBOLS_VAR",        /* Variable holding number of symbols in the table */
+  "CONFIG_EXECFUNCS_SYMTAB_ARRAY",        /* Symbol table array used by exec[l|v] */
+  "CONFIG_INIT_ARGS",                     /* Argument list of entry point */
+  "CONFIG_INIT_SYMTAB",                   /* Global symbol table */
+  "CONFIG_INIT_NEXPORTS",                 /* Global symbol table size */
   "CONFIG_MODLIB_SYMTAB_ARRAY",           /* Symbol table array used by modlib functions */
   "CONFIG_MODLIB_NSYMBOLS_VAR",           /* Variable holding number of symbols in the table */
   "CONFIG_PASS1_BUILDIR",                 /* Pass1 build directory */
   "CONFIG_PASS1_TARGET",                  /* Pass1 build target */
   "CONFIG_PASS1_OBJECT",                  /* Pass1 build object */
-  "CONFIG_DEBUG_OPTLEVEL",                /* Custom debug level */
-  "CONFIG_INIT_SYMTAB",                   /* Global symbol table */
-  "CONFIG_INIT_NEXPORTS",                 /* Global symbol table size */
+  "CONFIG_USER_ENTRYPOINT",               /* Name of entry point function */
 
   /* NxWidgets/NxWM */
 
   "CONFIG_NXWM_BACKGROUND_IMAGE",         /* Name of bitmap image class */
-  "CONFIG_NXWM_STOP_BITMAP",              /* Name of bitmap image class */
-  "CONFIG_NXWM_MINIMIZE_BITMAP",          /* Name of bitmap image class */
-  "CONFIG_NXWM_STARTWINDOW_ICON",         /* Name of bitmap image class */
-  "CONFIG_NXWM_NXTERM_ICON",              /* Name of bitmap image class */
   "CONFIG_NXWM_CALIBRATION_ICON",         /* Name of bitmap image class */
   "CONFIG_NXWM_HEXCALCULATOR_ICON",       /* Name of bitmap image class */
+  "CONFIG_NXWM_MINIMIZE_BITMAP",          /* Name of bitmap image class */
+  "CONFIG_NXWM_NXTERM_ICON",              /* Name of bitmap image class */
+  "CONFIG_NXWM_STARTWINDOW_ICON",         /* Name of bitmap image class */
+  "CONFIG_NXWM_STOP_BITMAP",              /* Name of bitmap image class */
 
   /* apps/ definitions */
 
-  "CONFIG_EXAMPLES_HELLO_PROGNAME",       /* Name of installed hello example program */
-  "CONFIG_SYSTEM_NSH_PROGNAME",           /* Name of installed NSH example program */
   "CONFIG_SYSTEM_NSH_SYMTAB_ARRAYNAME",   /* Symbol table array name */
   "CONFIG_SYSTEM_NSH_SYMTAB_COUNTNAME",   /* Name of the variable holding the number of symbols */
-  "CONFIG_THTTPD_INDEX_NAMES",            /* List of index file names */
   NULL                                    /* Marks the end of the list */
 };
 
@@ -123,14 +121,15 @@ static char *find_value_end(char *ptr)
     {
       if (*ptr == '"')
         {
-           do ptr++; while (*ptr && *ptr != '"');
-           if (*ptr) ptr++;
+          do ptr++; while (*ptr && *ptr != '"');
+          if (*ptr) ptr++;
         }
       else
         {
-           do ptr++; while (*ptr && !isspace((int)*ptr) && *ptr != '"');
+          do ptr++; while (*ptr && !isspace((int)*ptr) && *ptr != '"');
         }
     }
+
   return ptr;
 }
 
@@ -140,7 +139,7 @@ static char *read_line(FILE *stream)
 {
   char *ptr;
 
-  for (;;)
+  for (; ; )
     {
       line[LINESIZE] = '\0';
       if (!fgets(line, LINESIZE, stream))
@@ -232,7 +231,7 @@ static char *dequote_value(const char *varname, char *varval)
 
   if (dqval)
     {
-      /* Check if the variable name is in the list of strings to be dequoted */
+      /* Check if the variable name is in the dequoted list of strings */
 
       for (dqnam = dequote_list; *dqnam; dqnam++)
         {
@@ -251,52 +250,52 @@ static char *dequote_value(const char *varname, char *varval)
           /* Yes... Check if there is a trailing quote */
 
           len = strlen(dqval);
-          if (dqval[len-1] == '"')
+          if (dqval[len - 1] == '"')
             {
               /* Yes... replace it with a terminator */
 
-              dqval[len-1] = '\0';
+              dqval[len - 1] = '\0';
               len--;
             }
 
           /* Is there a leading quote? */
 
-           if (dqval[0] == '"')
-             {
-               /* Yes.. skip over the leading quote */
+          if (dqval[0] == '"')
+            {
+              /* Yes.. skip over the leading quote */
 
-               dqval++;
-               len--;
-             }
+              dqval++;
+              len--;
+            }
 
-           /* A special case is a quoted list of quoted strings.  In that case
-            * we will need to remove the backspaces from the internally quoted
-            * strings.  NOTE: this will not handle nested quoted quotes.
-            */
+          /* A special case is a quoted list of quoted strings.  In that case
+           * we will need to remove the backspaces from the internally quoted
+           * strings.  NOTE: this will not handle nested quoted quotes.
+           */
 
-           for (ptr = dqval; *ptr; ptr++)
-             {
-               /* Check for a quoted quote */
+          for (ptr = dqval; *ptr; ptr++)
+            {
+              /* Check for a quoted quote */
 
-               if (ptr[0] == '\\' && ptr[1] == '"')
-                 {
-                   /* Delete the backslash by moving the rest of the string */
+              if (ptr[0] == '\\' && ptr[1] == '"')
+                {
+                  /* Delete the backslash by moving the rest of the string */
 
-                   for (i = 0; ptr[i]; i++)
-                     {
-                       ptr[i] = ptr[i+1];
-                     }
+                  for (i = 0; ptr[i]; i++)
+                    {
+                      ptr[i] = ptr[i + 1];
+                    }
 
-                   len--;
-                 }
-             }
+                  len--;
+                }
+            }
 
-           /* Handle the case where nothing is left after dequoting */
+          /* Handle the case where nothing is left after dequoting */
 
-           if (len <= 0)
-             {
-               dqval = NULL;
-             }
+          if (len <= 0)
+            {
+              dqval = NULL;
+            }
         }
     }
 
@@ -334,8 +333,8 @@ void generate_definitions(FILE *stream)
 
               varval = dequote_value(varname, varval);
 
-              /* If no value was provided or if the special value 'n' was provided,
-               * then undefine the configuration variable.
+              /* If no value was provided or if the special value 'n' was
+               * provided, then undefine the configuration variable.
                */
 
               if (!varval || strcmp(varval, "n") == 0)
@@ -343,8 +342,8 @@ void generate_definitions(FILE *stream)
                   printf("#undef %s\n", varname);
                 }
 
-              /* Simply define the configuration variable to '1' if it has the
-               * special value "y"
+              /* Simply define the configuration variable to '1' if it has
+               * the special value "y"
                */
 
               else if (strcmp(varval, "y") == 0)

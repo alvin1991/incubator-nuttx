@@ -6,7 +6,7 @@
  *   Copyright (C) 2016 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
- * Derivies in part from sample code provided by Expressif Systems:
+ * Derives in part from sample code provided by Espressif Systems:
  *
  *   Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
  *
@@ -65,6 +65,7 @@
 #  define FUNCTION_2        (2 << FUNCTION_SHIFT)
 #  define FUNCTION_3        (3 << FUNCTION_SHIFT)
 #  define FUNCTION_4        (4 << FUNCTION_SHIFT)
+#  define FUNCTION_5        (5 << FUNCTION_SHIFT)
 #  define SPECIAL           (7 << FUNCTION_SHIFT)
 
 #define INPUT_PULLUP        (INPUT | PULLUP)
@@ -76,12 +77,14 @@
 #  define INPUT_FUNCTION_2  (INPUT_FUNCTION | FUNCTION_2)
 #  define INPUT_FUNCTION_3  (INPUT_FUNCTION | FUNCTION_3)
 #  define INPUT_FUNCTION_4  (INPUT_FUNCTION | FUNCTION_4)
+#  define INPUT_FUNCTION_5  (INPUT_FUNCTION | FUNCTION_5)
 #define OUTPUT_FUNCTION     (OUTPUT | FUNCTION)
 #  define OUTPUT_FUNCTION_0 (OUTPUT_FUNCTION | FUNCTION_0)
 #  define OUTPUT_FUNCTION_1 (OUTPUT_FUNCTION | FUNCTION_1)
 #  define OUTPUT_FUNCTION_2 (OUTPUT_FUNCTION | FUNCTION_2)
 #  define OUTPUT_FUNCTION_3 (OUTPUT_FUNCTION | FUNCTION_3)
 #  define OUTPUT_FUNCTION_4 (OUTPUT_FUNCTION | FUNCTION_4)
+#  define OUTPUT_FUNCTION_5 (OUTPUT_FUNCTION | FUNCTION_5)
 
 /* Interrupt type used with esp32_gpioirqenable() */
 
@@ -198,11 +201,6 @@ void esp32_gpioirqdisable(int irq);
 #else
 #  define esp32_gpioirqdisable(irq)
 #endif
-
-int digitalRead(uint8_t pin);
-
-void attachInterrupt(uint8_t pin, void (*)(void), int mode);
-void detachInterrupt(uint8_t pin);
 
 #ifdef __cplusplus
 }

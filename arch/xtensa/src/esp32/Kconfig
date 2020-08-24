@@ -5,6 +5,26 @@
 
 if ARCH_CHIP_ESP32
 
+choice ESP32_DEFAULT_CPU_FREQ
+	prompt "CPU frequency"
+	default ESP32_DEFAULT_CPU_FREQ_240
+	help
+		CPU frequency to be set on application startup.
+
+	config ESP32_DEFAULT_CPU_FREQ_80
+		bool "80 MHz"
+	config ESP32_DEFAULT_CPU_FREQ_160
+		bool "160 MHz"
+	config ESP32_DEFAULT_CPU_FREQ_240
+		bool "240 MHz"
+endchoice # CPU frequency
+
+config ESP32_DEFAULT_CPU_FREQ_MHZ
+	int
+	default 80 if ESP32_DEFAULT_CPU_FREQ_80
+	default 160 if ESP32_DEFAULT_CPU_FREQ_160
+	default 240 if ESP32_DEFAULT_CPU_FREQ_240
+
 menu "ESP32 Peripheral Selection"
 
 config ESP32_UART
@@ -21,16 +41,13 @@ config ESP32_BT
 config ESP32_EMAC
 	bool "Ethernet MAC"
 	default n
-	depends on EXPERIMENTAL
+	select NET
 	---help---
-		No yet implemented
+		Enable ESP32 ethernet support.
 
 config ESP32_I2C
-	bool "I2C"
+	bool
 	default n
-	depends on EXPERIMENTAL
-	---help---
-		No yet implemented
 
 config ESP32_I2S0
 	bool "I2S 0"
@@ -67,6 +84,14 @@ config ESP32_RMT
 	---help---
 		No yet implemented
 
+config ESP32_RNG
+	bool "Random Number Generator (RNG)"
+	default n
+	depends on EXPERIMENTAL
+	select ARCH_HAVE_RNG
+	---help---
+		ESP32 supports a RNG that passed on Dieharder test suite.
+
 config ESP32_SDIO_SAVE
 	bool "SDIO Slave"
 	default n
@@ -81,25 +106,30 @@ config ESP32_SDMMC
 	---help---
 		No yet implemented
 
-config ESP32_SPI0
-	bool "SPI 0"
+config ESP32_SPI
+	bool
 	default n
-	depends on EXPERIMENTAL
-	---help---
-		No yet implemented
 
-config ESP32_SPI1
-	bool "SPI 1"
+config ESP32_SPIFLASH
+	bool
 	default n
-	depends on EXPERIMENTAL
-	---help---
-		No yet implemented
+	select MTD
+	select MTD_BYTE_WRITE
+	select MTD_PARTITION
 
 config ESP32_SPI2
 	bool "SPI 2"
 	default n
-	---help---
-		No yet implemented
+	select ESP32_SPI
+	select ESP32_GPIO_IRQ
+	select SPI
+
+config ESP32_SPI3
+	bool "SPI 3"
+	default n
+	select ESP32_SPI
+	select ESP32_GPIO_IRQ
+	select SPI
 
 config XTENSA_TIMER1
 	bool "Xtensa Timer 1"
@@ -203,6 +233,20 @@ config ESP32_WIRELESS
 	depends on EXPERIMENTAL
 	---help---
 		No yet implemented
+
+config ESP32_I2C0
+	bool "I2C 0"
+	default n
+	select ESP32_I2C
+	select I2C
+	select I2C_DRIVER
+
+config ESP32_I2C1
+	bool "I2C 1"
+	default n
+	select ESP32_I2C
+	select I2C
+	select I2C_DRIVER
 
 endmenu # ESP32 Peripheral Selection
 
@@ -309,4 +353,182 @@ endif # SERIAL_IFLOWCONTROL || SERIAL_OFLOWCONTROL
 endif # ESP32_UART2
 
 endmenu # UART configuration
+
+menu "I2C configuration"
+	depends on ESP32_I2C
+
+if ESP32_I2C0
+
+config ESP32_I2C0_SCLPIN
+	int "I2C0 SCL Pin"
+	default 24
+	range 0 39
+
+config ESP32_I2C0_SDAPIN
+	int "I2C0 SDA Pin"
+	default 23
+	range 0 39
+
+endif # ESP32_I2C0
+
+if ESP32_I2C1
+
+config ESP32_I2C1_SCLPIN
+	int "I2C1 SCL Pin"
+	default 26
+	range 0 39
+
+config ESP32_I2C1_SDAPIN
+	int "I2C1 SDA Pin"
+	default 25
+	range 0 39
+
+endif # ESP32_I2C1
+
+endmenu # I2C configuration
+
+menu "SPI configuration"
+	depends on ESP32_SPI
+
+config ESP32_SPI_SWCS
+	bool "SPI software CS"
+	default y
+	---help---
+		Use SPI software CS.
+
+config ESP32_SPI_UDCS
+	bool "User defined CS"
+	default n
+	depends on ESP32_SPI_SWCS
+	---help---
+		Use user defined CS.
+
+config ESP32_SPI2_DMA
+	bool "SPI2 use DMA"
+	default y
+	depends on ESP32_SPI2
+
+config ESP32_SPI3_DMA
+	bool "SPI3 use DMA"
+	default y
+	depends on ESP32_SPI3
+
+config SPI_DMADESC_NUM
+	int "SPI master DMA description number"
+	default 2
+
+config SPI_SLAVE_BUFSIZE
+	int "SPI slave buffer size"
+	default 2048
+	depends on SPI_SLAVE
+
+if ESP32_SPI2
+
+config ESP32_SPI2_CSPIN
+	int "SPI2 CS Pin"
+	default 15
+	range 0 39
+
+config ESP32_SPI2_CLKPIN
+	int "SPI2 CLK Pin"
+	default 14
+	range 0 39
+
+config ESP32_SPI2_MOSIPIN
+	int "SPI2 MOSI Pin"
+	default 13
+	range 0 39
+
+config ESP32_SPI2_MISOPIN
+	int "SPI2 MISO Pin"
+	default 12
+	range 0 39
+
+endif # ESP32_SPI2
+
+if ESP32_SPI3
+
+config ESP32_SPI3_CSPIN
+	int "SPI3 CS Pin"
+	default 5
+	range 0 39
+
+config ESP32_SPI3_CLKPIN
+	int "SPI3 CLK Pin"
+	default 18
+	range 0 39
+
+config ESP32_SPI3_MOSIPIN
+	int "SPI3 MOSI Pin"
+	default 23
+	range 0 39
+
+config ESP32_SPI3_MISOPIN
+	int "SPI3 MISO Pin"
+	default 19
+	range 0 39
+
+endif # ESP32_SPI3
+
+endmenu # ESP32_SPI
+
+menu "SPI Flash configuration"
+	depends on ESP32_SPIFLASH
+
+config ESP32_MTD_OFFSET
+	hex "MTD base address in SPI Flash"
+	default 0x180000
+	help
+		MTD base address in SPI Flash.
+
+config ESP32_MTD_SIZE
+	hex "MTD size in SPI Flash"
+	default 0x100000
+	help
+		MTD size in SPI Flash.
+
+config ESP32_SPIFLASH_DEBUG
+	bool "Debug SPI Flash"
+	default n
+	depends on DEBUG_FS_INFO
+	help
+		Enable this option, read and write of SPI Flash
+		will show input arguments and result.
+
+endmenu # ESP32_SPIFLASH
+
+menu "Ethernet configuration"
+	depends on ESP32_EMAC
+
+config ESP32_ETH_NRXDESC
+	int "RX description number"
+	default 9
+	---help---
+		Descriptions of RX should be more than TX's.
+
+config ESP32_ETH_NTXDESC
+	int "TX description number"
+	default 8
+
+config ESP32_ETH_MDCPIN
+	int "MDC Pin"
+	default 23
+	range 0 39
+
+config ESP32_ETH_MDIOPIN
+	int "MDIO Pin"
+	default 18
+	range 0 39
+
+config ESP32_ETH_PHY_RSTPIN
+	int "Reset PHY Pin"
+	default 5
+	range 0 39
+
+config ESP32_ETH_PHY_ADDR
+	int "PHY address"
+	default 1
+
+endmenu # ESP32_EMAC
+
 endif # ARCH_CHIP_ESP32

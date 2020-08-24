@@ -47,12 +47,14 @@
 #include <debug.h>
 #include <time.h>
 
+#include <nuttx/kmalloc.h>
+
 #include <arch/chip/backuplog.h>
 #include <arch/chip/crashdump.h>
 #include "cxd56_wdt.h"
 
-#include "up_arch.h"
-#include "up_internal.h"
+#include "arm_arch.h"
+#include "arm_internal.h"
 
 /****************************************************************************
  * Private Functions
@@ -114,18 +116,18 @@ static void copy_reverse(stack_word_t *dest, stack_word_t *src, int size)
  ****************************************************************************/
 
 void board_crashdump(uintptr_t currentsp, FAR void *tcb,
-                     FAR const uint8_t *filename, int lineno)
+                     FAR const char *filename, int lineno)
 {
   FAR struct tcb_s *rtcb;
   fullcontext_t *pdump;
 
-  (void)enter_critical_section();
+  enter_critical_section();
 
   rtcb = (FAR struct tcb_s *)tcb;
 #ifdef CONFIG_CXD56_BACKUPLOG
   pdump = up_backuplog_alloc("crash", sizeof(fullcontext_t));
 #else
-  pdump = malloc(sizeof(fullcontext_t));
+  pdump = kmm_malloc(sizeof(fullcontext_t));
 #endif
   if (!pdump)
     {
@@ -225,9 +227,9 @@ void board_crashdump(uintptr_t currentsp, FAR void *tcb,
 
   /* Is it Invalid? */
 
-  if (!(pdump->info.stacks.interrupt.sp <= pdump->info.stacks.interrupt.top &&
-        pdump->info.stacks.interrupt.sp > pdump->info.stacks.interrupt.top -
-        pdump->info.stacks.interrupt.size))
+  if (!(pdump->info.stacks.interrupt.sp <= pdump->info.stacks.interrupt.top
+      && pdump->info.stacks.interrupt.sp > pdump->info.stacks.interrupt.top
+       - pdump->info.stacks.interrupt.size))
     {
       pdump->info.flags |= INVALID_INTSTACK_PTR;
     }

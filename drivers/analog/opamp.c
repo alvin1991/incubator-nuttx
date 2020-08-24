@@ -42,13 +42,11 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <debug.h>
 
 #include <nuttx/arch.h>
-#include <nuttx/semaphore.h>
 #include <nuttx/fs/fs.h>
 #include <nuttx/analog/opamp.h>
 
@@ -60,7 +58,8 @@
 
 static int     opamp_open(FAR struct file *filep);
 static int     opamp_close(FAR struct file *filep);
-static int     opamp_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
+static int     opamp_ioctl(FAR struct file *filep, int cmd,
+                           unsigned long arg);
 
 /****************************************************************************
  * Private Data
@@ -99,14 +98,16 @@ static int opamp_open(FAR struct file *filep)
   uint8_t                tmp;
   int                    ret;
 
-  /* If the port is the middle of closing, wait until the close is finished */
+  /* If the port is the middle of closing, wait until the close is
+   * finished.
+   */
 
   ret = nxsem_wait(&dev->ad_closesem);
   if (ret >= 0)
     {
-      /* Increment the count of references to the device.  If this the first
-       * time that the driver has been opened for this device, then initialize
-       * the device.
+      /* Increment the count of references to the device.  If this is the
+       * first time that the driver has been opened for this device, then
+       * initialize the device.
        */
 
       tmp = dev->ad_ocount + 1;
@@ -118,7 +119,9 @@ static int opamp_open(FAR struct file *filep)
         }
       else
         {
-          /* Check if this is the first time that the driver has been opened. */
+          /* Check if this is the first time that the driver has been
+           * opened.
+           */
 
           if (tmp == 1)
             {

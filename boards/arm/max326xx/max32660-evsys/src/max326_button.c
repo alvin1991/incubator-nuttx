@@ -70,9 +70,10 @@
  *
  ****************************************************************************/
 
-void board_button_initialize(void)
+uint32_t board_button_initialize(void)
 {
-  (void)max326_gpio_config(GPIO_BUTTON);
+  max326_gpio_config(GPIO_BUTTON);
+  return NUM_BUTTONS;
 }
 
 /****************************************************************************
@@ -127,7 +128,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
         {
           /* Configure the interrupt */
 
-          (void)irq_attach(BUTTON_IRQ, irqhandler, arg);
+          irq_attach(BUTTON_IRQ, irqhandler, arg);
           up_enable_irq(BUTTON_IRQ);
         }
       else
@@ -135,7 +136,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
           /* Disable and detach the interrupt */
 
           up_disable_irq(BUTTON_IRQ);
-          (void)irq_detach(BUTTON_IRQ);
+          irq_detach(BUTTON_IRQ);
         }
 
       spin_unlock_irqrestore(flags);

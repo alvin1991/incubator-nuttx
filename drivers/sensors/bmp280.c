@@ -163,7 +163,8 @@ struct bmp280_dev_s
  * Private Function Prototypes
  ****************************************************************************/
 
-static uint8_t bmp280_getreg8(FAR struct bmp280_dev_s *priv, uint8_t regaddr);
+static uint8_t bmp280_getreg8(FAR struct bmp280_dev_s *priv,
+                              uint8_t regaddr);
 static void bmp280_putreg8(FAR struct bmp280_dev_s *priv, uint8_t regaddr,
                            uint8_t regval);
 static uint32_t bmp280_getpressure(FAR struct bmp280_dev_s *priv);
@@ -483,7 +484,7 @@ static uint32_t bmp280_compensate_press(FAR struct bmp280_dev_s *priv,
 
   /* Update temperature fine value first. */
 
-  (void) bmp280_compensate_temp(priv, temp);
+  bmp280_compensate_temp(priv, temp);
 
   var1 = (priv->tempfine >> 1) - 64000;
   var2 = (((var1 >> 2) * (var1 >> 2)) >> 11) * ((int32_t)c->p6);
@@ -546,6 +547,33 @@ static uint32_t bmp280_getpressure(FAR struct bmp280_dev_s *priv)
     }
 
   return press;
+}
+
+/****************************************************************************
+ * Name: bmp280_gettemp
+ *
+ * Description:
+ *   Read temperature only
+ *
+ ****************************************************************************/
+
+static uint32_t bmp280_gettemp(FAR struct bmp280_dev_s *priv)
+{
+  uint8_t buf[3];
+  int32_t temp;
+
+  bmp280_getregs(priv, BMP280_TEMP_MSB, buf, 3);
+
+  temp = COMBINE(buf);
+
+  sninfo("temp = %d\n", temp);
+
+  if (priv->compensated == ENABLE_COMPENSATED)
+    {
+      temp = bmp280_compensate_temp(priv, temp);
+    }
+
+  return temp;
 }
 
 /****************************************************************************
@@ -640,6 +668,9 @@ static int bmp280_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
       case SNIOC_SETSTB:
         ret = bmp280_set_standby(priv, arg);
         break;
+
+      case SNIOC_GET_TEMP:
+        *(uint32_t *)arg = bmp280_gettemp(priv);
 
       default:
         snerr("Unrecognized cmd: %d\n", cmd);

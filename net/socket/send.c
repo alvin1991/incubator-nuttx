@@ -91,12 +91,10 @@ ssize_t psock_send(FAR struct socket *psock, FAR const void *buf, size_t len,
 
   /* Verify that non-NULL pointers were passed */
 
-#ifdef CONFIG_DEBUG_FEATURES
   if (buf == NULL)
     {
       return -EINVAL;
     }
-#endif
 
   /* Verify that the sockfd corresponds to valid, allocated socket */
 
@@ -112,7 +110,8 @@ ssize_t psock_send(FAR struct socket *psock, FAR const void *buf, size_t len,
   ret = psock->s_sockif->si_send(psock, buf, len, flags);
   if (ret < 0)
     {
-      nerr("ERROR: socket si_send() (or usrsock_sendto()) failed: %d\n", ret);
+      nerr("ERROR: socket si_send() (or usrsock_sendto()) failed: %d\n",
+           ret);
     }
 
   return ret;
@@ -225,18 +224,23 @@ ssize_t nx_send(int sockfd, FAR const void *buf, size_t len, int flags)
 
 ssize_t send(int sockfd, FAR const void *buf, size_t len, int flags)
 {
+  FAR struct socket *psock;
   ssize_t ret;
 
   /* send() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
-  /* Let nx_send() and psock_send() do all of the work */
+  /* Get the underlying socket structure */
 
-  ret = nx_send(sockfd, buf, len, flags);
+  psock = sockfd_socket(sockfd);
+
+  /* Let psock_send() do all of the work */
+
+  ret = psock_send(psock, buf, len, flags);
   if (ret < 0)
     {
-      set_errno((int)-ret);
+      _SO_SETERRNO(psock, -ret);
       ret = ERROR;
     }
 

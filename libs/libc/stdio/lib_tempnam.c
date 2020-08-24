@@ -43,6 +43,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "libc.h"
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -88,7 +90,7 @@ FAR char *tempnam(FAR const char *dir, FAR const char *pfx)
   FAR char *path;
   int ret;
 
-  (void)asprintf(&path, "%s/%s-XXXXXX.tmp", dir, pfx);
+  asprintf(&path, "%s/%s-XXXXXX.tmp", dir, pfx);
   if (path)
     {
       ret = mktemp(path);
@@ -97,7 +99,7 @@ FAR char *tempnam(FAR const char *dir, FAR const char *pfx)
           return path;
         }
 
-      free(path);
+      lib_free(path);
     }
 
   set_errno(ENOMEM);

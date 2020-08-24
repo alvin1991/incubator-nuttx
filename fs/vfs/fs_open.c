@@ -271,8 +271,11 @@ int nx_vopen(FAR const char *path, int oflags, va_list ap)
        */
 
       fd = (int)OPEN_GETFD(ret);
-      DEBUGASSERT((unsigned)fd < (CONFIG_NFILE_DESCRIPTORS +
-                                  CONFIG_NSOCKET_DESCRIPTORS));
+      DEBUGASSERT((unsigned)fd < (CONFIG_NFILE_DESCRIPTORS
+#ifdef CONFIG_NET
+                                  + CONFIG_NSOCKET_DESCRIPTORS
+#endif
+      ));
     }
 #endif
 
@@ -339,7 +342,7 @@ int open(FAR const char *path, int oflags, ...)
 
   /* open() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
   /* Let nx_vopen() do most of the work */
 

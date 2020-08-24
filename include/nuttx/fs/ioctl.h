@@ -121,6 +121,10 @@
 
 /* Terminal I/O IOCTL definitions are retained in tioctl.h */
 
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
 #include <nuttx/serial/tioctl.h>
 
 /* Watchdog driver ioctl commands *******************************************/
@@ -171,6 +175,14 @@
                                            *      holding userfs configuration.
                                            * OUT: Instance number is returned on
                                            *      success.
+                                           */
+#define FIONBIO         _FIOC(0x000b)     /* IN:  Boolean option takes an
+                                           *      int value.
+                                           * OUT: Origin option.
+                                           */
+#define FIOC_MINOR      _FIOC(0x000c)     /* IN:  None
+                                           * OUT: Integer that contains device
+                                           *      minor number
                                            */
 
 /* NuttX file system ioctl definitions **************************************/
@@ -305,12 +317,13 @@
 #define _PWMIOC(nr)       _IOC(_PWMIOCBASE,nr)
 
 /* NuttX USB CDC/ACM serial driver ioctl definitions ************************/
+
 /* (see nuttx/usb/cdcacm.h) */
 
 #define _CAIOCVALID(c)    (_IOC_TYPE(c)==_CAIOCBASE)
 #define _CAIOC(nr)        _IOC(_CAIOCBASE,nr)
 
-/* NuttX USB CDC/ACM serial driver ioctl definitions ************************/
+/* NuttX battery driver ioctl definitions ***********************************/
 
 /* (see nuttx/power/battery.h) */
 
@@ -318,6 +331,7 @@
 #define _BATIOC(nr)       _IOC(_BATIOCBASE,nr)
 
 /* NuttX Quadrature Encoder driver ioctl definitions ************************/
+
 /* (see nuttx/power/battery.h) */
 
 #define _QEIOCVALID(c)    (_IOC_TYPE(c)==_QEIOCBASE)
@@ -345,6 +359,7 @@
 #define _SLCDIOC(nr)      _IOC(_SLCDIOCBASE,nr)
 
 /* Wireless driver character driver ioctl definitions ***********************/
+
 /* (see nuttx/include/wireless/ioctl.h */
 
 #define _WLCIOCVALID(c)   (_IOC_TYPE(c)==_WLCIOCBASE)
@@ -364,11 +379,11 @@
 #define _TCIOCVALID(c)    (_IOC_TYPE(c)==_TCIOCBASE)
 #define _TCIOC(nr)        _IOC(_TCIOCBASE,nr)
 
-/* Joystick driver ioctl definitions ***************************************/
+/* Joystick driver ioctl definitions ****************************************/
 
 /* Discrete Joystick (see nuttx/include/input/djoystick.h */
 
-#define _JOYIOCVALID(c)   (_IOC_SMASK(c)==_JOYBASE)
+#define _JOYIOCVALID(c)   (_IOC_TYPE(c)==_JOYBASE)
 #define _JOYIOC(nr)       _IOC(_JOYBASE,nr)
 
 /* FIFOs and pipe driver ioctl definitions **********************************/

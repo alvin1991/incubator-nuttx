@@ -34,7 +34,7 @@
  ****************************************************************************/
 
 #ifndef __ARCH_ARM_INCLUDE_SETJUMP_H
-#define __ARCH_ARM_INCLUDE_SETJUMP_H 1
+#define __ARCH_ARM_INCLUDE_SETJUMP_H
 
 /****************************************************************************
  * Included Files
@@ -46,7 +46,7 @@
  * Public Types
  ****************************************************************************/
 
-#ifdef CONFIG_ARCH_ARMV7M
+#if defined(CONFIG_ARCH_ARMV7M) || defined(CONFIG_ARCH_ARMV8M)
 struct setjmp_buf_s
 {
   /* Note: core registers r0-r3 are caller-saved */

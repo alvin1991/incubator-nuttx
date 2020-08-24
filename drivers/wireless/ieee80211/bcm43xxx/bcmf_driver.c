@@ -73,9 +73,9 @@
 #define BCMF_SCAN_RESULT_SIZE  1024
 
 /* CLM file is cut into pieces of MAX_CHUNK_LEN.
- * It is relatively small because dongles (FW) have a small maximum size input
- * payload restriction for ioctl's ... something like 1900'ish bytes. So chunk
- * len should not exceed 1400 bytes
+ * It is relatively small because dongles (FW) have a small maximum size
+ * input payload restriction for ioctl's ... something like 1900'ish bytes.
+ * So chunk len should not exceed 1400 bytes
  *
  * NOTE:  CONFIG_NET_ETH_PKTSIZE is the MTU plus the size of the Ethernet
  * header (14 bytes).
@@ -198,7 +198,8 @@ FAR struct bcmf_dev_s *bcmf_allocate_device(void)
       goto exit_free_priv;
     }
 
-  if ((ret = nxsem_setprotocol(&priv->control_timeout, SEM_PRIO_NONE)) != OK)
+  if ((ret = nxsem_set_protocol(&priv->control_timeout, SEM_PRIO_NONE)) !=
+      OK)
     {
       goto exit_free_priv;
     }
@@ -210,7 +211,7 @@ FAR struct bcmf_dev_s *bcmf_allocate_device(void)
       goto exit_free_priv;
     }
 
-  if ((ret = nxsem_setprotocol(&priv->auth_signal, SEM_PRIO_NONE)) != OK)
+  if ((ret = nxsem_set_protocol(&priv->auth_signal, SEM_PRIO_NONE)) != OK)
     {
       goto exit_free_priv;
     }
@@ -218,12 +219,6 @@ FAR struct bcmf_dev_s *bcmf_allocate_device(void)
   /* Init scan timeout timer */
 
   priv->scan_status = BCMF_SCAN_DISABLED;
-  priv->scan_timeout = wd_create();
-  if (!priv->scan_timeout)
-    {
-      ret = -ENOMEM;
-      goto exit_free_priv;
-    }
 
   return priv;
 
@@ -324,7 +319,8 @@ int bcmf_driver_download_clm(FAR struct bcmf_dev_s *priv)
       /* CLM header */
 
       dlhead             = (struct wl_dload_data *)downloadbuff;
-      dlhead->flag       = (DLOAD_HANDLER_VER << DLOAD_FLAG_VER_SHIFT) | dl_flag;
+      dlhead->flag       = (DLOAD_HANDLER_VER << DLOAD_FLAG_VER_SHIFT) |
+                           dl_flag;
       dlhead->dload_type = DL_TYPE_CLM;
       dlhead->len        = chunk_len;
       dlhead->crc        = 0;
@@ -389,7 +385,8 @@ int bcmf_driver_download_clm(FAR struct bcmf_dev_s *priv)
       uint32_t out_len;
 
       chunk_len = datalen >= MAX_CHUNK_LEN ? MAX_CHUNK_LEN : datalen;
-      memcpy(downloadbuff + sizeof(struct wl_dload_data), srcbuff, chunk_len);
+      memcpy(downloadbuff + sizeof(struct wl_dload_data), srcbuff,
+             chunk_len);
       datalen  -= chunk_len;
       srcbuff  += chunk_len;
 
@@ -401,7 +398,8 @@ int bcmf_driver_download_clm(FAR struct bcmf_dev_s *priv)
       /* CLM header */
 
       dlhead             = (struct wl_dload_data *)downloadbuff;
-      dlhead->flag       = (DLOAD_HANDLER_VER << DLOAD_FLAG_VER_SHIFT) | dl_flag;
+      dlhead->flag       = (DLOAD_HANDLER_VER << DLOAD_FLAG_VER_SHIFT) |
+                           dl_flag;
       dlhead->dload_type = DL_TYPE_CLM;
       dlhead->len        = chunk_len;
       dlhead->crc        = 0;
@@ -537,16 +535,26 @@ int bcmf_driver_initialize(FAR struct bcmf_dev_s *priv)
 
   /*  Register authentication related events */
 
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_ASSOC_IND_NDIS);
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_AUTH);
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_ASSOC);
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_LINK);
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_PSK_SUP);
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_JOIN);
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_SET_SSID);
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_DEAUTH_IND);
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_DISASSOC);
-  bcmf_event_register(priv, bcmf_wl_auth_event_handler, WLC_E_DISASSOC_IND);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_ASSOC_IND_NDIS);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_AUTH);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_ASSOC);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_LINK);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_PSK_SUP);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_JOIN);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_SET_SSID);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_DEAUTH_IND);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_DISASSOC);
+  bcmf_event_register(priv, bcmf_wl_auth_event_handler,
+                      WLC_E_DISASSOC_IND);
 
   if (bcmf_event_push_config(priv))
     {
@@ -559,19 +567,22 @@ int bcmf_driver_initialize(FAR struct bcmf_dev_s *priv)
 }
 
 void bcmf_wl_default_event_handler(FAR struct bcmf_dev_s *priv,
-                                   struct bcmf_event_s *event, unsigned int len)
+                                   struct bcmf_event_s *event,
+                                   unsigned int len)
 {
   wlinfo("Got event %d from <%s>\n", bcmf_getle32(&event->type),
                                      event->src_name);
 }
 
 void bcmf_wl_radio_event_handler(FAR struct bcmf_dev_s *priv,
-                                 struct bcmf_event_s *event, unsigned int len)
+                                 struct bcmf_event_s *event,
+                                 unsigned int len)
 {
 }
 
 void bcmf_wl_auth_event_handler(FAR struct bcmf_dev_s *priv,
-                                   struct bcmf_event_s *event, unsigned int len)
+                                struct bcmf_event_s *event,
+                                unsigned int len)
 {
   uint32_t type;
   uint32_t status;
@@ -598,7 +609,8 @@ void bcmf_wl_auth_event_handler(FAR struct bcmf_dev_s *priv,
  */
 
 void bcmf_wl_scan_event_handler(FAR struct bcmf_dev_s *priv,
-                                   struct bcmf_event_s *event, unsigned int len)
+                                struct bcmf_event_s *event,
+                                unsigned int len)
 {
   uint32_t status;
   uint32_t event_len;
@@ -642,12 +654,13 @@ void bcmf_wl_scan_event_handler(FAR struct bcmf_dev_s *priv,
 
   result = (struct wl_escan_result *)&event[1];
 
-  if (len < result->buflen || result->buflen < sizeof(struct wl_escan_result))
+  if (len < result->buflen ||
+      result->buflen < sizeof(struct wl_escan_result))
     {
       goto exit_invalid_frame;
     }
 
-  /* wl_escan_result structure cointains a wl_bss_info field */
+  /* wl_escan_result structure contains a wl_bss_info field */
 
   len = result->buflen - sizeof(struct wl_escan_result)
                        + sizeof(struct wl_bss_info);
@@ -690,7 +703,8 @@ void bcmf_wl_scan_event_handler(FAR struct bcmf_dev_s *priv,
 
           if (iwe->cmd == SIOCGIWAP)
             {
-              if (memcmp(&iwe->u.ap_addr.sa_data, bss->BSSID.ether_addr_octet,
+              if (memcmp(&iwe->u.ap_addr.sa_data,
+                         bss->BSSID.ether_addr_octet,
                          sizeof(bss->BSSID.ether_addr_octet)) == 0)
                 {
                   goto process_next_bss;
@@ -700,10 +714,14 @@ void bcmf_wl_scan_event_handler(FAR struct bcmf_dev_s *priv,
           check_offset += iwe->len;
         }
 
-      wlinfo("Scan result: <%.32s> %02x:%02x:%02x:%02x:%02x:%02x\n", bss->SSID,
-               bss->BSSID.ether_addr_octet[0], bss->BSSID.ether_addr_octet[1],
-               bss->BSSID.ether_addr_octet[2], bss->BSSID.ether_addr_octet[3],
-               bss->BSSID.ether_addr_octet[4], bss->BSSID.ether_addr_octet[5]);
+      wlinfo("Scan result: <%.32s> %02x:%02x:%02x:%02x:%02x:%02x\n",
+               bss->SSID,
+               bss->BSSID.ether_addr_octet[0],
+               bss->BSSID.ether_addr_octet[1],
+               bss->BSSID.ether_addr_octet[2],
+               bss->BSSID.ether_addr_octet[3],
+               bss->BSSID.ether_addr_octet[4],
+               bss->BSSID.ether_addr_octet[5]);
 
       /* Copy BSSID */
 
@@ -849,22 +867,28 @@ void bcmf_wl_scan_event_handler(FAR struct bcmf_dev_s *priv,
                   ie_frame_size_aligned = (ie_frame_size + 3) & -4;
 
                   wlinfo("found RSN\n");
-                  if (result_size < BCMF_IW_EVENT_SIZE(data) + ie_frame_size_aligned)
+
+                  if (result_size < BCMF_IW_EVENT_SIZE(data) +
+                                    ie_frame_size_aligned)
                     {
                       break;
                     }
 
-                  iwe = (struct iw_event *)&priv->scan_result[priv->scan_result_size];
+                  iwe = (struct iw_event *)
+                    &priv->scan_result[priv->scan_result_size];
+
                   iwe->len = BCMF_IW_EVENT_SIZE(data)+ie_frame_size_aligned;
                   iwe->cmd = IWEVGENIE;
                   iwe->u.data.flags = 0;
                   iwe->u.data.length = ie_frame_size;
                   iwe->u.data.pointer = (FAR void *)sizeof(iwe->u.data);
-                  memcpy(&iwe->u.data + 1, &ie_buffer[ie_offset], ie_frame_size);
+                  memcpy(&iwe->u.data + 1, &ie_buffer[ie_offset],
+                         ie_frame_size);
 
                   priv->scan_result_size += BCMF_IW_EVENT_SIZE(essid) +
                                             ie_frame_size_aligned;
-                  result_size -= BCMF_IW_EVENT_SIZE(essid) + ie_frame_size_aligned;
+                  result_size -= BCMF_IW_EVENT_SIZE(essid) +
+                                 ie_frame_size_aligned;
                   break;
                 }
 
@@ -911,7 +935,7 @@ wl_escan_result_processed:
 
   wlinfo("escan done event %d %d\n", status, bcmf_getle32(&event->reason));
 
-  wd_cancel(priv->scan_timeout);
+  wd_cancel(&priv->scan_timeout);
 
   priv->scan_status = BCMF_SCAN_DONE;
   nxsem_post(&priv->control_mutex);
@@ -923,9 +947,9 @@ exit_invalid_frame:
   bcmf_hexdump((uint8_t *)event, event_len, (unsigned long)event);
 }
 
-void bcmf_wl_scan_timeout(int argc, wdparm_t arg1, ...)
+void bcmf_wl_scan_timeout(wdparm_t arg)
 {
-  FAR struct bcmf_dev_s *priv = (FAR struct bcmf_dev_s *)arg1;
+  FAR struct bcmf_dev_s *priv = (FAR struct bcmf_dev_s *)arg;
 
   if (priv->scan_status < BCMF_SCAN_RUN)
     {
@@ -988,7 +1012,7 @@ int bcmf_wl_enable(FAR struct bcmf_dev_s *priv, bool enable)
   int ret;
   uint32_t out_len;
 
-  /* TODO chek device state */
+  /* TODO check device state */
 
   out_len = 0;
   ret = bcmf_cdc_ioctl(priv, CHIP_STA_INTERFACE, true,
@@ -1117,8 +1141,8 @@ int bcmf_wl_start_scan(FAR struct bcmf_dev_s *priv, struct iwreq *iwr)
 
   /*  Start scan_timeout timer */
 
-  (void)wd_start(priv->scan_timeout, BCMF_SCAN_TIMEOUT_TICK,
-                 bcmf_wl_scan_timeout, 1, (wdparm_t)priv);
+  wd_start(&priv->scan_timeout, BCMF_SCAN_TIMEOUT_TICK,
+           bcmf_wl_scan_timeout, (wdparm_t)priv);
 
   return OK;
 
@@ -1302,7 +1326,8 @@ int bcmf_wl_set_auth_param(FAR struct bcmf_dev_s *priv, struct iwreq *iwr)
 
           out_len = 4;
           if (bcmf_cdc_ioctl(priv, interface, true,
-                             WLC_SET_WSEC, (uint8_t *)&cipher_mode, &out_len))
+                             WLC_SET_WSEC, (uint8_t *)&cipher_mode,
+                             &out_len))
             {
               return -EIO;
             }
@@ -1311,7 +1336,8 @@ int bcmf_wl_set_auth_param(FAR struct bcmf_dev_s *priv, struct iwreq *iwr)
 
           out_len = 4;
           if (bcmf_cdc_ioctl(priv, interface, true,
-                             WLC_SET_AUTH, (uint8_t *)&wep_auth, &out_len))
+                             WLC_SET_AUTH, (uint8_t *)&wep_auth,
+                             &out_len))
             {
               return -EIO;
             }

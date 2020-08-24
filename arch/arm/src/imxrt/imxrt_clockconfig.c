@@ -42,7 +42,7 @@
 
 #include <nuttx/config.h>
 
-#include "up_arch.h"
+#include "arm_arch.h"
 #include <arch/board/board.h>
 #include "hardware/imxrt_ccm.h"
 #include "hardware/imxrt_dcdc.h"
@@ -212,8 +212,10 @@ static void imxrt_lcd_clockconfig(void)
   /* Select PLL5 as LCD Clock and set Pre divider. */
 
   modifyreg32(IMXRT_CCM_CSCDR2,
-      CCM_CSCDR2_LCDIF_PRE_CLK_SEL_MASK | CCM_CSCDR2_LCDIF_PRED_MASK,
-      CCM_CSCDR2_LCDIF_PRE_CLK_SEL_PLL5 | CCM_CSCDR2_LCDIF_PRED(pre_divider));
+              CCM_CSCDR2_LCDIF_PRE_CLK_SEL_MASK |
+              CCM_CSCDR2_LCDIF_PRED_MASK,
+              CCM_CSCDR2_LCDIF_PRE_CLK_SEL_PLL5 |
+              CCM_CSCDR2_LCDIF_PRED(pre_divider));
 
   /* Set Post divider. */
 
@@ -228,12 +230,11 @@ static void imxrt_lcd_clockconfig(void)
  ****************************************************************************/
 
 static void imxrt_pllsetup(void)
-
 {
 #ifdef CONFIG_ARCH_FAMILY_IMXRT102x
   uint32_t pll2reg;
-  uint32_t pll3reg;
 #endif
+  uint32_t pll3reg;
   uint32_t reg;
 
 #if (defined(CONFIG_ARCH_FAMILY_IMXRT105x) || defined (CONFIG_ARCH_FAMILY_IMXRT106x))
@@ -254,6 +255,31 @@ static void imxrt_pllsetup(void)
   while ((getreg32(IMXRT_CCM_ANALOG_PLL_SYS) & CCM_ANALOG_PLL_SYS_LOCK) == 0)
     {
     }
+
+  /* Init USB PLL3 */
+
+  /* capture it's original value */
+
+  pll3reg = getreg32(IMXRT_CCM_ANALOG_PFD_480);
+  putreg32(pll3reg                         |
+           CCM_ANALOG_PFD_480_PFD0_CLKGATE |
+           CCM_ANALOG_PFD_480_PFD1_CLKGATE |
+           CCM_ANALOG_PFD_480_PFD2_CLKGATE |
+           CCM_ANALOG_PFD_480_PFD3_CLKGATE,
+           IMXRT_CCM_ANALOG_PFD_480);
+
+  reg = IMXRT_USB1_PLL_DIV_SELECT       |
+        CCM_ANALOG_PLL_USB1_ENABLE      |
+        CCM_ANALOG_PLL_USB1_EN_USB_CLKS |
+        CCM_ANALOG_PLL_USB1_POWER;
+  putreg32(reg, IMXRT_CCM_ANALOG_PLL_USB1);
+
+  while ((getreg32(IMXRT_CCM_ANALOG_PLL_USB1) &
+          CCM_ANALOG_PLL_USB1_LOCK) == 0)
+    {
+    }
+
+  putreg32(pll3reg, IMXRT_CCM_ANALOG_PFD_480);
 
 #ifdef CONFIG_IMXRT_LCD
   /* Init Video PLL5 */
@@ -375,10 +401,10 @@ void imxrt_clockconfig(void)
    * clocking and SDRAM.  We are pretty much committed to using things the
    * way that the bootloader has left them.
    *
-   * Note that although this is safe at boot while nothing is using the clocks
-   * additional caution is required if at some later date we want to
-   * manipulate the PODFs while the system is running (for power minimisation)
-   * because changing those is not glitch free.
+   * Note that although this is safe at boot while nothing is using
+   * the clocks additional caution is required if at some later date
+   * we want to manipulate the PODFs while the system is running
+   * (for power minimisation) because changing those is not glitch free.
    */
 
 #ifndef CONFIG_IMXRT_BOOT_SDRAM
@@ -516,6 +542,64 @@ void imxrt_clockconfig(void)
   reg |= CCM_CSCDR1_UART_CLK_PODF(CCM_PODF_FROM_DIVISOR(1));
   putreg32(reg, IMXRT_CCM_CSCDR1);
 
+#ifdef CONFIG_IMXRT_FLEXIO1
+#ifdef CONFIG_ARCH_FAMILY_IMXRT102x
+  /* Set FlEXIO1 source */
+
+  reg = getreg32(IMXRT_CCM_CSCMR2);
+  reg &= ~CCM_CSCMR2_FLEXIO1_CLK_SEL_MASK;
+  reg |= CCM_CSCMR2_FLEXIO1_CLK_SEL(CONFIG_FLEXIO1_CLK);
+  putreg32(reg, IMXRT_CCM_CSCMR2);
+
+  /* Set FlEXIO1 divider */
+
+  reg = getreg32(IMXRT_CCM_CS1CDR);
+  reg &= ~(CCM_CS1CDR_FLEXIO1_CLK_PODF_MASK | \
+            CCM_CS1CDR_FLEXIO1_CLK_PRED_MASK);
+  reg |= CCM_CS1CDR_FLEXIO1_CLK_PODF
+            (CCM_PODF_FROM_DIVISOR(CONFIG_FLEXIO1_PODF_DIVIDER));
+  reg |= CCM_CS1CDR_FLEXIO1_CLK_PRED
+            (CCM_PRED_FROM_DIVISOR(CONFIG_FLEXIO1_PRED_DIVIDER));
+  putreg32(reg, IMXRT_CCM_CS1CDR);
+
+#elif (defined(CONFIG_ARCH_FAMILY_IMXRT105x) || defined(CONFIG_ARCH_FAMILY_IMXRT106x))
+  /* Set FlEXIO1 source & divider */
+
+  reg = getreg32(IMXRT_CCM_CDCDR);
+  reg &= ~(CCM_CDCDR_FLEXIO1_CLK_SEL_MASK |
+           CCM_CDCDR_FLEXIO1_CLK_PODF_MASK |
+           CCM_CDCDR_FLEXIO1_CLK_PRED_MASK);
+  reg |= CCM_CDCDR_FLEXIO1_CLK_SEL(CONFIG_FLEXIO1_CLK);
+  reg |= CCM_CDCDR_FLEXIO1_CLK_PODF
+            (CCM_PODF_FROM_DIVISOR(CONFIG_FLEXIO1_PODF_DIVIDER));
+  reg |= CCM_CDCDR_FLEXIO1_CLK_PRED
+            (CCM_PRED_FROM_DIVISOR(CONFIG_FLEXIO1_PRED_DIVIDER));
+  putreg32(reg, IMXRT_CCM_CDCDR);
+
+#endif /* CONFIG_ARCH_FAMILY_IMXRT102x */
+#endif /* CONFIG_IMXRT_FLEXIO1 */
+
+#if (defined(CONFIG_IMXRT_FLEXIO2) || defined(CONFIG_IMXRT_FLEXIO3))
+  /* Set FlEXIO2 source */
+
+  reg = getreg32(IMXRT_CCM_CSCMR2);
+  reg &= ~CCM_CSCMR2_FLEXIO2_CLK_SEL_MASK;
+  reg |= CCM_CSCMR2_FLEXIO2_CLK_SEL(CONFIG_FLEXIO2_CLK);
+  putreg32(reg, IMXRT_CCM_CSCMR2);
+
+  /* Set FlEXIO2 divider */
+
+  reg = getreg32(IMXRT_CCM_CS1CDR);
+  reg &= ~(CCM_CS1CDR_FLEXIO2_CLK_PODF_MASK | \
+            CCM_CS1CDR_FLEXIO2_CLK_PRED_MASK);
+  reg |= CCM_CS1CDR_FLEXIO2_CLK_PODF
+            (CCM_PODF_FROM_DIVISOR(CONFIG_FLEXIO2_PODF_DIVIDER));
+  reg |= CCM_CS1CDR_FLEXIO2_CLK_PRED
+            (CCM_PRED_FROM_DIVISOR(CONFIG_FLEXIO2_PRED_DIVIDER));
+  putreg32(reg, IMXRT_CCM_CS1CDR);
+
+#endif /* CONFIG_IMXRT_FLEXIO2 */
+
 #ifdef CONFIG_IMXRT_LPI2C
   /* Set LPI2C source to PLL3 60M */
 
@@ -524,11 +608,13 @@ void imxrt_clockconfig(void)
   reg |= IMXRT_LPI2C_CLK_SELECT;
   putreg32(reg, IMXRT_CCM_CSCDR2);
 
-  /* Set LPI2C divider to 5  for 12 Mhz */
+  /* Set LPI2C divider to 5  for 12 MHz */
 
   reg  = getreg32(IMXRT_CCM_CSCDR2);
   reg &= ~CCM_CSCDR2_LPI2C_CLK_PODF_MASK;
-  reg |= CCM_CSCDR2_LPI2C_CLK_PODF(CCM_PODF_FROM_DIVISOR(IMXRT_LSI2C_PODF_DIVIDER));
+  reg |= CCM_CSCDR2_LPI2C_CLK_PODF(
+           CCM_PODF_FROM_DIVISOR(IMXRT_LSI2C_PODF_DIVIDER)
+         );
   putreg32(reg, IMXRT_CCM_CSCDR2);
 
 #endif
@@ -545,7 +631,9 @@ void imxrt_clockconfig(void)
 
   reg  = getreg32(IMXRT_CCM_CBCMR);
   reg &= ~CCM_CBCMR_LPSPI_PODF_MASK;
-  reg |= CCM_CBCMR_LPSPI_PODF(CCM_PODF_FROM_DIVISOR(IMXRT_LSPI_PODF_DIVIDER));
+  reg |= CCM_CBCMR_LPSPI_PODF(
+           CCM_PODF_FROM_DIVISOR(IMXRT_LSPI_PODF_DIVIDER)
+         );
   putreg32(reg, IMXRT_CCM_CBCMR);
 #endif
 
@@ -565,7 +653,9 @@ void imxrt_clockconfig(void)
 #endif
 
 #ifdef CONFIG_IMXRT_USDHC
-  /* Optionally set USDHC1 & 2 to generate clocks from IMXRT_USDHC1_CLK_SELECT */
+  /* Optionally set USDHC1 & 2 to generate clocks
+   * from IMXRT_USDHC1_CLK_SELECT
+   */
 
   reg  = getreg32(IMXRT_CCM_CSCMR1);
   reg &= ~(CCM_CSCMR1_USDHC1_CLK_SEL | CCM_CSCMR1_USDHC2_CLK_SEL);
@@ -597,5 +687,11 @@ void imxrt_clockconfig(void)
   reg  = getreg32(IMXRT_CCM_CGPR);
   reg |= CCM_CGPR_INT_MEM_CLK_LPM;
   putreg32(reg, IMXRT_CCM_CGPR);
+
+  /* Remain in run mode */
+
+  modifyreg32(IMXRT_CCM_CLPCR,
+              CCM_CLPCR_LPM_MASK,
+              CCM_CLPCR_LPM_RUN);
 #endif
 }

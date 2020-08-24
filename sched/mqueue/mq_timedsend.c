@@ -1,35 +1,20 @@
 /****************************************************************************
  *  sched/mqueue/mq_timedsend.c
  *
- *   Copyright (C) 2007-2009, 2011, 2013-2017 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name NuttX nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
  *
  ****************************************************************************/
 
@@ -68,7 +53,6 @@
  *   becomes non-full.
  *
  * Input Parameters:
- *   argc  - the number of arguments (should be 1)
  *   pid   - the task ID of the task to wakeup
  *
  * Returned Value:
@@ -78,7 +62,7 @@
  *
  ****************************************************************************/
 
-static void nxmq_sndtimeout(int argc, wdparm_t pid)
+static void nxmq_sndtimeout(wdparm_t pid)
 {
   FAR struct tcb_s *wtcb;
   irqstate_t flags;
@@ -93,7 +77,7 @@ static void nxmq_sndtimeout(int argc, wdparm_t pid)
    * longer be active when this watchdog goes off.
    */
 
-  wtcb = sched_gettcb((pid_t)pid);
+  wtcb = nxsched_get_tcb(pid);
 
   /* It is also possible that an interrupt/context switch beat us to the
    * punch and already changed the task's state.
@@ -168,7 +152,7 @@ int nxmq_timedsend(mqd_t mqdes, FAR const char *msg, size_t msglen,
   int result;
   int ret;
 
-  DEBUGASSERT(up_interrupt_context() == false && rtcb->waitdog == NULL);
+  DEBUGASSERT(up_interrupt_context() == false);
 
   /* Verify the input parameters on any failures to verify. */
 
@@ -230,18 +214,6 @@ int nxmq_timedsend(mqd_t mqdes, FAR const char *msg, size_t msglen,
       goto errout_with_mqmsg;
     }
 
-  /* Create a watchdog.  We will not actually need this watchdog
-   * unless the queue is full, but we will reserve it up front
-   * before we enter the following critical section.
-   */
-
-  rtcb->waitdog = wd_create();
-  if (!rtcb->waitdog)
-    {
-      ret = -EINVAL;
-      goto errout_with_mqmsg;
-    }
-
   /* We are not in an interrupt handler and the message queue is full.
    * Set up a timed wait for the message queue to become non-full.
    *
@@ -271,8 +243,7 @@ int nxmq_timedsend(mqd_t mqdes, FAR const char *msg, size_t msglen,
 
   /* Start the watchdog and begin the wait for MQ not full */
 
-  (void)wd_start(rtcb->waitdog, ticks, (wdentry_t)nxmq_sndtimeout,
-                 1, getpid());
+  wd_start(&rtcb->waitdog, ticks, nxmq_sndtimeout, getpid());
 
   /* And wait for the message queue to be non-empty */
 
@@ -282,7 +253,7 @@ int nxmq_timedsend(mqd_t mqdes, FAR const char *msg, size_t msglen,
    * or ETIMEOUT.  Cancel the watchdog timer in any event.
    */
 
-  wd_cancel(rtcb->waitdog);
+  wd_cancel(&rtcb->waitdog);
 
   /* Check if nxmq_wait_send() failed */
 
@@ -307,8 +278,6 @@ int nxmq_timedsend(mqd_t mqdes, FAR const char *msg, size_t msglen,
   ret = nxmq_do_send(mqdes, mqmsg, msg, msglen, prio);
 
   sched_unlock();
-  wd_delete(rtcb->waitdog);
-  rtcb->waitdog = NULL;
   leave_cancellation_point();
   return ret;
 
@@ -318,8 +287,6 @@ int nxmq_timedsend(mqd_t mqdes, FAR const char *msg, size_t msglen,
 
 errout_in_critical_section:
   leave_critical_section(flags);
-  wd_delete(rtcb->waitdog);
-  rtcb->waitdog = NULL;
 
   /* Exit here with (1) the scheduler locked and 2) a message allocated.  The
    * error code is in 'result'
@@ -340,14 +307,14 @@ errout_with_mqmsg:
  *   in bytes pointed to by "msg."  This length must not exceed the maximum
  *   message length from the mq_getattr().
  *
- *   If the message queue is not full, mq_timedsend() place the message in the
- *   message queue at the position indicated by the "prio" argrument.
+ *   If the message queue is not full, mq_timedsend() place the message in
+ *   the message queue at the position indicated by the "prio" argrument.
  *   Messages with higher priority will be inserted before lower priority
  *   messages.  The value of "prio" must not exceed MQ_PRIO_MAX.
  *
  *   If the specified message queue is full and O_NONBLOCK is not set in the
- *   message queue, then mq_timedsend() will block until space becomes available
- *   to the queue the message or a timeout occurs.
+ *   message queue, then mq_timedsend() will block until space becomes
+ *   available to the queue the message or a timeout occurs.
  *
  *   mq_timedsend() behaves just like mq_send(), except that if the queue
  *   is full and the O_NONBLOCK flag is not enabled for the message queue
@@ -389,7 +356,7 @@ int mq_timedsend(mqd_t mqdes, FAR const char *msg, size_t msglen,
 
   /* mq_timedsend() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
   /* Let nxmq_send() do all of the work */
 

@@ -63,8 +63,8 @@
 #include <arch/board/board.h>
 
 #include "chip.h"
-#include "up_arch.h"
-#include "up_internal.h"
+#include "arm_arch.h"
+#include "arm_internal.h"
 
 #include "hardware/lpc54_pinmux.h"
 #include "hardware/lpc54_syscon.h"
@@ -128,7 +128,7 @@ struct lpc54_i2cdev_s
   struct i2c_master_s dev;  /* Generic I2C device */
   uintptr_t base;           /* Base address of Flexcomm registers */
 
-  WDOG_ID timeout;          /* Watchdog to timeout when bus hung */
+  struct wdog_s timeout;    /* Watchdog to timeout when bus hung */
   uint32_t frequency;       /* Current I2C frequency */
   uint32_t fclock;          /* Flexcomm function clock frequency */
 
@@ -156,7 +156,7 @@ static inline uint32_t lpc54_i2c_getreg(struct lpc54_i2cdev_s *priv,
 
 static void lpc54_i2c_setfrequency(struct lpc54_i2cdev_s *priv,
               uint32_t frequency);
-static void lpc54_i2c_timeout(int argc, uint32_t arg, ...);
+static void lpc54_i2c_timeout(wdparm_t arg);
 static void lpc54_i2c_xfrsetup(struct lpc54_i2cdev_s *priv);
 static bool lpc54_i2c_nextmsg(struct lpc54_i2cdev_s *priv);
 static bool lpc54_i2c_statemachine(struct lpc54_i2cdev_s *priv);
@@ -308,8 +308,8 @@ static void lpc54_i2c_setfrequency(struct lpc54_i2cdev_s *priv,
 
           if (err == 0 || divider >= 0x10000)
             {
-              /* Break out of the loop early ifeither exact value was found or
-               * the divider is at its maximum value.
+              /* Break out of the loop early ifeither exact value was found
+               * or the divider is at its maximum value.
                */
 
               break;
@@ -336,7 +336,7 @@ static void lpc54_i2c_setfrequency(struct lpc54_i2cdev_s *priv,
  *
  ****************************************************************************/
 
-static void lpc54_i2c_timeout(int argc, uint32_t arg, ...)
+static void lpc54_i2c_timeout(wdparm_t arg)
 {
   struct lpc54_i2cdev_s *priv = (struct lpc54_i2cdev_s *)arg;
 
@@ -393,7 +393,7 @@ static void lpc54_i2c_xfrsetup(struct lpc54_i2cdev_s *priv)
 
   if ((msg->flags & I2C_M_NOSTART) != 0)
     {
-      /* Start condition will be ommited.  Begin the tranfer in the data
+      /* Start condition will be omitted.  Begin the transfer in the data
        * phase.
        */
 
@@ -421,7 +421,7 @@ static void lpc54_i2c_xfrsetup(struct lpc54_i2cdev_s *priv)
 
   if (msg->frequency > 0)
     {
-      (void)lpc54_i2c_setfrequency(priv, msg->frequency);
+      lpc54_i2c_setfrequency(priv, msg->frequency);
     }
 
   /* Clear error status bits */
@@ -472,10 +472,11 @@ static bool lpc54_i2c_nextmsg(struct lpc54_i2cdev_s *priv)
     }
   else
     {
-      /* That was the last message... we are done. */
-      /* Cancel any timeout */
+      /* That was the last message... we are done.
+       * Cancel any timeout
+       */
 
-      wd_cancel(priv->timeout);
+      wd_cancel(&priv->timeout);
 
       /* Disable further I2C interrupts  and return to the IDLE state */
 
@@ -766,8 +767,8 @@ static int lpc54_i2c_transfer(FAR struct i2c_master_s *dev,
 
   /* Set up the transfer timeout */
 
-  (void)wd_start(priv->timeout, priv->nmsgs * I2C_WDOG_TIMEOUT,
-                 lpc54_i2c_timeout, 1, (uint32_t)priv);
+  wd_start(&priv->timeout, priv->nmsgs * I2C_WDOG_TIMEOUT,
+           lpc54_i2c_timeout, (wdparm_t)priv);
 
   /* Initiate the transfer */
 
@@ -780,7 +781,7 @@ static int lpc54_i2c_transfer(FAR struct i2c_master_s *dev,
 #ifndef CONFIG_I2C_POLLED
        nxsem_wait(&priv->waitsem);
 #else
-       (void)lpc54_i2c_statemachine(priv);
+       lpc54_i2c_statemachine(priv);
 #endif
     }
   while (priv->state != I2CSTATE_IDLE);
@@ -792,7 +793,7 @@ static int lpc54_i2c_transfer(FAR struct i2c_master_s *dev,
   return ret;
 }
 
-/************************************************************************************
+/****************************************************************************
  * Name: lpc54_i2c_reset
  *
  * Description:
@@ -804,7 +805,7 @@ static int lpc54_i2c_transfer(FAR struct i2c_master_s *dev,
  * Returned Value:
  *   Zero (OK) on success; a negated errno value on failure.
  *
- ************************************************************************************/
+ ****************************************************************************/
 
 #ifdef CONFIG_I2C_RESET
 static int lpc54_i2c_reset(FAR struct i2c_master_s * dev)
@@ -837,6 +838,7 @@ struct i2c_master_s *lpc54_i2cbus_initialize(int port)
   flags = enter_critical_section();
 
   /* Configure the requestin I2C peripheral */
+
   /* NOTE:  The basic FLEXCOMM initialization was performed in
    * lpc54_lowputc.c.
    */
@@ -1213,13 +1215,8 @@ struct i2c_master_s *lpc54_i2cbus_initialize(int port)
    * priority inheritance enabled.
    */
 
-  nxsem_setprotocol(&priv->waitsem, SEM_PRIO_NONE);
+  nxsem_set_protocol(&priv->waitsem, SEM_PRIO_NONE);
 #endif
-
-  /* Allocate a watchdog timer */
-
-  priv->timeout = wd_create();
-  DEBUGASSERT(priv->timeout != 0);
 
 #ifndef CONFIG_I2C_POLLED
   /* Attach Interrupt Handler */

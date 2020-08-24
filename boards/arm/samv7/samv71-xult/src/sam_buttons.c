@@ -49,7 +49,7 @@
 #include <nuttx/irq.h>
 #include <arch/board/board.h>
 
-#include "up_arch.h"
+#include "arm_arch.h"
 #include "sam_gpio.h"
 #include "hardware/sam_matrix.h"
 #include "samv71-xult.h"
@@ -84,13 +84,13 @@
  ****************************************************************************/
 
 #ifdef HAVE_IRQBUTTONS
-static int board_button_irqx(gpio_pinset_t pinset, int irq, xcpt_t irqhandler,
-                             void *arg)
+static int board_button_irqx(gpio_pinset_t pinset, int irq,
+                             xcpt_t irqhandler, void *arg)
 {
   irqstate_t flags;
 
-  /* Disable interrupts until we are done.  This guarantees that the following
-   * operations are atomic.
+  /* Disable interrupts until we are done.  This guarantees that the
+   * following operations are atomic.
    */
 
   flags = enter_critical_section();
@@ -102,14 +102,14 @@ static int board_button_irqx(gpio_pinset_t pinset, int irq, xcpt_t irqhandler,
       /* Configure the interrupt */
 
       sam_gpioirq(pinset);
-      (void)irq_attach(irq, irqhandler, arg);
+      irq_attach(irq, irqhandler, arg);
       sam_gpioirqenable(irq);
     }
   else
     {
       /* Detach and disable the interrupt */
 
-      (void)irq_detach(irq);
+      irq_detach(irq);
       sam_gpioirqdisable(irq);
     }
 
@@ -133,7 +133,7 @@ static int board_button_irqx(gpio_pinset_t pinset, int irq, xcpt_t irqhandler,
  *
  ****************************************************************************/
 
-void board_button_initialize(void)
+uint32_t board_button_initialize(void)
 {
   uint32_t regval;
 
@@ -148,8 +148,9 @@ void board_button_initialize(void)
 
   /* Configure button GPIOs */
 
-  (void)sam_configgpio(GPIO_SW0);
-  (void)sam_configgpio(GPIO_SW1);
+  sam_configgpio(GPIO_SW0);
+  sam_configgpio(GPIO_SW1);
+  return NUM_BUTTONS;
 }
 
 /****************************************************************************

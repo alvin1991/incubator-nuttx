@@ -1,7 +1,8 @@
 /****************************************************************************
  * sched/pthread/pthread_exit.c
  *
- *   Copyright (C) 2007, 2009, 2011-2013, 2017 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007, 2009, 2011-2013, 2017 Gregory Nutt.
+ *   All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,7 +90,7 @@ void pthread_exit(FAR void *exit_value)
    * are performing the JOIN handshake.
    */
 
-  (void)nxsig_procmask(SIG_SETMASK, &set, NULL);
+  nxsig_procmask(SIG_SETMASK, &set, NULL);
 
 #ifdef CONFIG_CANCELLATION_POINTS
   /* Mark the pthread as non-cancelable to avoid additional calls to
@@ -105,7 +106,7 @@ void pthread_exit(FAR void *exit_value)
 #ifdef CONFIG_PTHREAD_CLEANUP
   /* Perform any stack pthread clean-up callbacks */
 
-  pthread_cleanup_popall((FAR struct pthread_tcb_s *)tcb);
+  pthread_cleanup_popall(tcb);
 #endif
 
   /* Complete pending join operations */
@@ -123,7 +124,7 @@ void pthread_exit(FAR void *exit_value)
 #ifndef CONFIG_PTHREAD_MUTEX_UNSAFE
   /* Recover any mutexes still held by the canceled thread */
 
-  pthread_mutex_inconsistent((FAR struct pthread_tcb_s *)tcb);
+  pthread_mutex_inconsistent(tcb);
 #endif
 
   /* Perform common task termination logic.  This will get called again later
@@ -141,4 +142,3 @@ void pthread_exit(FAR void *exit_value)
 
   _exit(EXIT_SUCCESS);
 }
-

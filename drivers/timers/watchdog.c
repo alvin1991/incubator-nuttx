@@ -43,7 +43,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <semaphore.h>
 #include <fcntl.h>
 #include <assert.h>
 #include <errno.h>
@@ -53,6 +52,7 @@
 #include <nuttx/irq.h>
 #include <nuttx/kmalloc.h>
 #include <nuttx/power/pm.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/wdog.h>
 #include <nuttx/wqueue.h>
 #include <nuttx/timers/watchdog.h>
@@ -78,7 +78,7 @@ struct watchdog_upperhalf_s
 {
 #ifdef CONFIG_WATCHDOG_AUTOMONITOR
 #if defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_TIMER)
-  WDOG_ID              wdog;
+  struct wdog_s        wdog;
 #elif defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_WORKER)
   struct work_s        work;
 #elif defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_IDLE)
@@ -143,16 +143,16 @@ static int watchdog_automonitor_capture(int irq, FAR void *context,
   return 0;
 }
 #elif defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_TIMER)
-static void watchdog_automonitor_timer(int argc, wdparm_t arg1, ...)
+static void watchdog_automonitor_timer(wdparm_t arg)
 {
-  FAR struct watchdog_upperhalf_s *upper = (FAR void *)arg1;
+  FAR struct watchdog_upperhalf_s *upper = (FAR void *)arg;
   FAR struct watchdog_lowerhalf_s *lower = upper->lower;
 
   if (upper->monitor)
     {
       lower->ops->keepalive(lower);
-      wd_start(upper->wdog, WATCHDOG_AUTOMONITOR_TIMEOUT_TICK / 2,
-               watchdog_automonitor_timer, 1, upper);
+      wd_start(&upper->wdog, WATCHDOG_AUTOMONITOR_TIMEOUT_TICK / 2,
+               watchdog_automonitor_timer, (wdparm_t)upper);
     }
 }
 #elif defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_WORKER)
@@ -183,7 +183,8 @@ static void watchdog_automonitor_idle(FAR struct pm_callback_s *cb,
 #endif
 
 #ifdef CONFIG_WATCHDOG_AUTOMONITOR
-static void watchdog_automonitor_start(FAR struct watchdog_upperhalf_s *upper)
+static void watchdog_automonitor_start(FAR struct watchdog_upperhalf_s
+                                       *upper)
 {
   FAR struct watchdog_lowerhalf_s *lower = upper->lower;
 
@@ -193,9 +194,8 @@ static void watchdog_automonitor_start(FAR struct watchdog_upperhalf_s *upper)
 #if defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_CAPTURE)
       lower->ops->capture(lower, watchdog_automonitor_capture);
 #elif defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_TIMER)
-      upper->wdog = wd_create();
-      wd_start(upper->wdog, WATCHDOG_AUTOMONITOR_TIMEOUT_TICK / 2,
-               watchdog_automonitor_timer, 1, upper);
+      wd_start(&upper->wdog, WATCHDOG_AUTOMONITOR_TIMEOUT_TICK / 2,
+               watchdog_automonitor_timer, (wdparm_t)upper);
 #elif defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_WORKER)
       work_queue(LPWORK, &upper->work, watchdog_automonitor_worker,
                  upper, WATCHDOG_AUTOMONITOR_TIMEOUT_TICK / 2);
@@ -223,7 +223,7 @@ static void watchdog_automonitor_stop(FAR struct watchdog_upperhalf_s *upper)
 #if defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_CAPTURE)
       lower->ops->capture(lower, NULL);
 #elif defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_TIMER)
-      wd_delete(upper->wdog);
+      wd_cancel(&upper->wdog);
 #elif defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_WORKER)
       work_cancel(LPWORK, &upper->work);
 #elif defined(CONFIG_WATCHDOG_AUTOMONITOR_BY_IDLE)
@@ -549,7 +549,7 @@ static int wdog_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
           }
         else
           {
-            ret = -ENOSYS;
+            ret = -ENOTTY;
           }
       }
       break;
@@ -687,11 +687,11 @@ void watchdog_unregister(FAR void *handle)
   /* Disable the watchdog timer */
 
   DEBUGASSERT(lower->ops->stop); /* Required */
-  (void)lower->ops->stop(lower);
+  lower->ops->stop(lower);
 
   /* Unregister the watchdog timer device */
 
-  (void)unregister_driver(upper->path);
+  unregister_driver(upper->path);
 
   /* Then free all of the driver resources */
 

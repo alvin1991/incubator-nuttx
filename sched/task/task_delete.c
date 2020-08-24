@@ -101,7 +101,7 @@ int task_delete(pid_t pid)
 
   /* Get the TCB of the task to be deleted */
 
-  dtcb = (FAR struct tcb_s *)sched_gettcb(pid);
+  dtcb = (FAR struct tcb_s *)nxsched_get_tcb(pid);
   if (dtcb == NULL)
     {
       /* The pid does not correspond to any known thread.  The task
@@ -122,7 +122,7 @@ int task_delete(pid_t pid)
    * threads.
    *
    * REVISIT: We will need to look at this again in the future if/when
-   * permissions are supported and a user task might also be priveleged.
+   * permissions are supported and a user task might also be privileged.
    */
 
   if (((rtcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_KERNEL) &&
@@ -132,60 +132,8 @@ int task_delete(pid_t pid)
       goto errout;
     }
 
-  /* Check to see if this task has the non-cancelable bit set in its
-   * flags. Suppress context changes for a bit so that the flags are stable.
-   * (the flags should not change in interrupt handling).
-   */
-
-  sched_lock();
-  if ((dtcb->flags & TCB_FLAG_NONCANCELABLE) != 0)
-    {
-      /* Then we cannot cancel the thread now.  Here is how this is
-       * supposed to work:
-       *
-       * "When cancelability is disabled, all cancels are held pending
-       *  in the target thread until the thread changes the cancelability.
-       *  When cancelability is deferred, all cancels are held pending in
-       *  the target thread until the thread changes the cancelability, calls
-       *  a function which is a cancellation point or calls pthread_testcancel(),
-       *  thus creating a cancellation point. When cancelability is asynchronous,
-       *  all cancels are acted upon immediately, interrupting the thread with its
-       *  processing."
-       */
-
-      dtcb->flags |= TCB_FLAG_CANCEL_PENDING;
-      sched_unlock();
-      return OK;
-    }
-
-#ifdef CONFIG_CANCELLATION_POINTS
-  /* Check if this task supports deferred cancellation */
-
-  if ((dtcb->flags & TCB_FLAG_CANCEL_DEFERRED) != 0)
-    {
-      /* Then we cannot cancel the task asynchronously.  Mark the cancellation
-       * as pending.
-       */
-
-      dtcb->flags |= TCB_FLAG_CANCEL_PENDING;
-
-      /* If the task is waiting at a cancellation point, then notify of the
-       * cancellation thereby waking the task up with an ECANCELED error.
-       */
-
-      if (dtcb->cpcount > 0)
-        {
-          nxnotify_cancellation(dtcb);
-        }
-
-      sched_unlock();
-      return OK;
-    }
-#endif
-
   /* Check if the task to delete is the calling task */
 
-  sched_unlock();
   if (pid == rtcb->pid)
     {
       /* If it is, then what we really wanted to do was exit. Note that we
@@ -193,6 +141,13 @@ int task_delete(pid_t pid)
        */
 
       exit(EXIT_SUCCESS);
+    }
+
+  /* Notify the target if the non-cancelable or deferred cancellation set */
+
+  if (nxnotify_cancellation(dtcb))
+    {
+      return OK;
     }
 
   /* Otherwise, perform the asynchronous cancellation, letting

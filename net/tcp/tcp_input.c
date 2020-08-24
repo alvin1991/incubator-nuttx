@@ -2,7 +2,8 @@
  * net/tcp/tcp_input.c
  * Handling incoming TCP input
  *
- *   Copyright (C) 2007-2014, 2017-2019 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2014, 2017-2019, 2020 Gregory Nutt. All rights
+ *     reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Adapted for NuttX from logic in uIP which also has a BSD-like license:
@@ -51,7 +52,6 @@
 #include <assert.h>
 #include <debug.h>
 
-#include <nuttx/clock.h>
 #include <nuttx/net/netconfig.h>
 #include <nuttx/net/netdev.h>
 #include <nuttx/net/netstats.h>
@@ -127,7 +127,7 @@ static void tcp_input(FAR struct net_driver_s *dev, uint8_t domain,
 
   tcpiplen = iplen + TCP_HDRLEN;
 
-  /* Get the size of the link layer header, the IP header, and the TCP header */
+  /* Get the size of the link layer header, the IP and TCP header */
 
   hdrlen = tcpiplen + NET_LL_HDRLEN(dev);
 
@@ -192,8 +192,8 @@ static void tcp_input(FAR struct net_driver_s *dev, uint8_t domain,
            * response.
            */
 
-          /* First allocate a new connection structure and see if there is any
-           * user application to accept it.
+          /* First allocate a new connection structure and see if there is
+           * any user application to accept it.
            */
 
           conn = tcp_alloc_accept(dev, tcp);
@@ -379,7 +379,7 @@ found:
 
       if (listener != NULL)
         {
-          (void)tcp_callback(dev, listener, TCP_ABORT);
+          tcp_callback(dev, listener, TCP_ABORT);
         }
 
       goto drop;
@@ -430,16 +430,7 @@ found:
 
       if (ackseq < rcvseq)
         {
-          if (dev->d_len > 0)
-            {
-              /* Increment the received sequence number (perhaps including the
-               * discarded dummy byte in the probe).
-               */
-
-              net_incr32(conn->rcvseq, dev->d_len);
-            }
-
-          /* And send a "normal" acknowledgment of the KeepAlive probe */
+          /* Send a "normal" acknowledgment of the KeepAlive probe */
 
           tcp_send(dev, conn, TCP_ACK, tcpiplen);
           return;
@@ -517,9 +508,9 @@ found:
           if ((conn->tcpstateflags & TCP_STATE_MASK) == TCP_ESTABLISHED)
             {
               nwarn("WARNING: ackseq > unackseq\n");
-              nwarn("         sndseq=%u tx_unacked=%u unackseq=%u ackseq=%u\n",
-                    tcp_getsequence(conn->sndseq), conn->tx_unacked, unackseq,
-                    ackseq);
+              nwarn("sndseq=%u tx_unacked=%u unackseq=%u ackseq=%u\n",
+                    tcp_getsequence(conn->sndseq), conn->tx_unacked,
+                    unackseq, ackseq);
 
               conn->tx_unacked = 0;
             }
@@ -531,7 +522,7 @@ found:
        */
 
       ninfo("sndseq: %08x->%08x unackseq: %08x new tx_unacked: %d\n",
-            tcp_getsequence(conn->sndseq), ackseq, unackseq, conn->tx_unacked);
+          tcp_getsequence(conn->sndseq), ackseq, unackseq, conn->tx_unacked);
       tcp_setsequence(conn->sndseq, ackseq);
 
       /* Do RTT estimation, unless we have done retransmissions. */
@@ -600,7 +591,7 @@ found:
 
                 nwarn("WARNING: Listen canceled while waiting for ACK on "
                       "port %d\n",
-                      tcp->destport);
+                      ntohs(tcp->destport));
 
                 /* Free the connection structure */
 
@@ -731,7 +722,7 @@ found:
 
         /* Inform the application that the connection failed */
 
-        (void)tcp_callback(dev, conn, TCP_ABORT);
+        tcp_callback(dev, conn, TCP_ABORT);
 
         /* The connection is closed after we send the RST */
 
@@ -757,8 +748,8 @@ found:
          *
          * If the incoming packet is a FIN, we should close the connection on
          * this side as well, and we send out a FIN and enter the LAST_ACK
-         * state.  We require that there is no outstanding data; otherwise the
-         * sequence numbers will be screwed up.
+         * state.  We require that there is no outstanding data; otherwise
+         * the sequence numbers will be screwed up.
          */
 
         if ((tcp->flags & TCP_FIN) != 0 &&
@@ -766,9 +757,10 @@ found:
           {
             /* Needs to be investigated further.
              * Windows often sends FIN packets together with the last ACK for
-             * the received data. So the socket layer has to get this ACK even
-             * if the connection is going to be closed.
+             * the received data. So the socket layer has to get this ACK
+             * even if the connection is going to be closed.
              */
+
 #if 0
             if (conn->tx_unacked > 0)
               {
@@ -776,8 +768,8 @@ found:
               }
 #endif
 
-            /* Update the sequence number and indicate that the connection has
-             * been closed.
+            /* Update the sequence number and indicate that the connection
+             * has been closed.
              */
 
             net_incr32(conn->rcvseq, dev->d_len + 1);
@@ -788,7 +780,7 @@ found:
                 flags |= TCP_NEWDATA;
               }
 
-            (void)tcp_callback(dev, conn, flags);
+            tcp_callback(dev, conn, flags);
 
             conn->tcpstateflags = TCP_LAST_ACK;
             conn->tx_unacked    = 1;
@@ -847,7 +839,7 @@ found:
              * alive is enabled for this connection.
              */
 
-            conn->keeptime    = clock_systimer();
+            conn->keeptime    = clock_systime_ticks();
             conn->keepretries = 0;
           }
 #endif
@@ -926,7 +918,7 @@ found:
             conn->tcpstateflags = TCP_CLOSED;
             ninfo("TCP_LAST_ACK TCP state: TCP_CLOSED\n");
 
-            (void)tcp_callback(dev, conn, TCP_CLOSE);
+            tcp_callback(dev, conn, TCP_CLOSE);
           }
         break;
 
@@ -956,7 +948,7 @@ found:
               }
 
             net_incr32(conn->rcvseq, 1);
-            (void)tcp_callback(dev, conn, TCP_CLOSE);
+            tcp_callback(dev, conn, TCP_CLOSE);
             tcp_send(dev, conn, TCP_ACK, tcpiplen);
             return;
           }
@@ -988,7 +980,7 @@ found:
             ninfo("TCP state: TCP_TIME_WAIT\n");
 
             net_incr32(conn->rcvseq, 1);
-            (void)tcp_callback(dev, conn, TCP_CLOSE);
+            tcp_callback(dev, conn, TCP_CLOSE);
             tcp_send(dev, conn, TCP_ACK, tcpiplen);
             return;
           }

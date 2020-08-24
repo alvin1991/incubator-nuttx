@@ -50,7 +50,6 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <debug.h>
 
@@ -59,8 +58,8 @@
 #include <nuttx/arch.h>
 #include <nuttx/can/can.h>
 
-#include "up_internal.h"
-#include "up_arch.h"
+#include "arm_internal.h"
+#include "arm_arch.h"
 
 #include "chip.h"
 #include "stm32l4.h"
@@ -1074,6 +1073,50 @@ static int stm32l4can_ioctl(FAR struct can_dev_s *dev, int cmd,
         }
         break;
 
+      case CANIOC_SET_NART:
+        {
+          uint32_t regval;
+          ret = stm32can_enterinitmode(priv);
+          if (ret != 0)
+            {
+              return ret;
+            }
+          regval = stm32can_getreg(priv, STM32_CAN_MCR_OFFSET);
+          if (arg == 1)
+            {
+              regval |= CAN_MCR_NART;
+            }
+          else
+            {
+              regval &= ~CAN_MCR_NART;
+            }
+          stm32can_putreg(priv, STM32_CAN_MCR_OFFSET, regval);
+          return stm32can_exitinitmode(priv);
+        }
+        break;
+
+      case CANIOC_SET_ABOM:
+        {
+          uint32_t regval;
+          ret = stm32can_enterinitmode(priv);
+          if (ret != 0)
+            {
+              return ret;
+            }
+          regval = stm32can_getreg(priv, STM32_CAN_MCR_OFFSET);
+          if (arg == 1)
+            {
+              regval |= CAN_MCR_ABOM;
+            }
+          else
+            {
+              regval &= ~CAN_MCR_ABOM;
+            }
+          stm32can_putreg(priv, STM32_CAN_MCR_OFFSET, regval);
+          return stm32can_exitinitmode(priv);
+        }
+        break;
+
       /* Unsupported/unrecognized command */
 
       default:
@@ -1115,7 +1158,7 @@ static int stm32l4can_remoterequest(FAR struct can_dev_s *dev, uint16_t id)
  *
  *    Byte 0:      Bits 0-7: Bits 3-10 of the 11-bit CAN identifier
  *    Byte 1:      Bits 5-7: Bits 0-2 of the 11-bit CAN identifier
- *                 Bit 4:    Remote Tranmission Request (RTR)
+ *                 Bit 4:    Remote Transmission Request (RTR)
  *                 Bits 0-3: Data Length Code (DLC)
  *    Bytes 2-10: CAN data
  *
@@ -1183,8 +1226,11 @@ static int stm32l4can_send(FAR struct can_dev_s *dev,
       regval |= msg->cm_hdr.ch_id << CAN_TIR_STID_SHIFT;
     }
 #else
-  regval &= ~CAN_TIR_STID_MASK;
-  regval |= (uint32_t)msg->cm_hdr.ch_id << CAN_TIR_STID_SHIFT;
+   regval |= ( ( (uint32_t) msg->cm_hdr.ch_id << CAN_TIR_STID_SHIFT) & CAN_TIR_STID_MASK );
+
+#ifdef CONFIG_CAN_USE_RTR
+  regval |= (msg->cm_hdr.ch_rtr ? CAN_TIR_RTR : 0);
+#endif
 #endif
   stm32l4can_putreg(priv, STM32L4_CAN_TIR_OFFSET(txmb), regval);
 
@@ -1531,7 +1577,7 @@ static int stm32l4can_txinterrupt(int irq, FAR void *context, FAR void *arg)
         {
           /* Tell the upper half that the tansfer is finished. */
 
-          (void)can_txdone(dev);
+          can_txdone(dev);
         }
     }
 
@@ -1551,7 +1597,7 @@ static int stm32l4can_txinterrupt(int irq, FAR void *context, FAR void *arg)
         {
           /* Tell the upper half that the tansfer is finished. */
 
-          (void)can_txdone(dev);
+          can_txdone(dev);
         }
     }
 
@@ -1571,7 +1617,7 @@ static int stm32l4can_txinterrupt(int irq, FAR void *context, FAR void *arg)
         {
           /* Tell the upper half that the tansfer is finished. */
 
-          (void)can_txdone(dev);
+          can_txdone(dev);
         }
     }
 
@@ -1902,7 +1948,7 @@ static int stm32l4can_cellinit(FAR struct stm32l4_can_s *priv)
  *   code will have to be imported from the STM32 port.
  *
  *   32-bit IdMask mode is configured.  However, both the ID and the MASK
- *   are set to zero thus supressing all filtering because anything masked
+ *   are set to zero thus suppressing all filtering because anything masked
  *   with zero matches zero.
  *
  * Input Parameters:

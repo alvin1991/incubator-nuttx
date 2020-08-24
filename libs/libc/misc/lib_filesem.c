@@ -41,7 +41,6 @@
 
 #include <sys/types.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <assert.h>
 
@@ -70,7 +69,7 @@ void lib_sem_initialize(FAR struct file_struct *stream)
    * to private data sets.
    */
 
-  (void)nxsem_init(&stream->fs_sem, 0, 1);
+  _SEM_INIT(&stream->fs_sem, 0, 1);
 
   stream->fs_holder = -1;
   stream->fs_counts = 0;
@@ -107,7 +106,8 @@ void lib_take_semaphore(FAR struct file_struct *stream)
            * was awakened by a signal.
            */
 
-          DEBUGASSERT(_SEM_ERRNO(ret) == EINTR || _SEM_ERRNO(ret) == ECANCELED);
+          DEBUGASSERT(_SEM_ERRNO(ret) == EINTR ||
+                      _SEM_ERRNO(ret) == ECANCELED);
           UNUSED(ret);
         }
 

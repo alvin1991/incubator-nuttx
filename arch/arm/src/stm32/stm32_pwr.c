@@ -49,7 +49,7 @@
 #include <nuttx/arch.h>
 #include <nuttx/irq.h>
 
-#include "up_arch.h"
+#include "arm_arch.h"
 #include "stm32_pwr.h"
 
 #if defined(CONFIG_STM32_PWR)
@@ -351,13 +351,13 @@ bool stm32_pwr_getwuf(void)
  * Description:
  *   Enables the Backup regulator, the Backup regulator (used to maintain backup
  *   SRAM content in Standby and VBAT modes) is enabled. If BRE is reset, the backup
- *   regulator is switched off. The backup SRAM can still be used but its content will
- *   be lost in the Standby and VBAT modes. Once set, the application must wait that
- *   the Backup Regulator Ready flag (BRR) is set to indicate that the data written
- *   into the RAM will be maintained in the Standby and VBAT modes.
+ *   regulator is switched off. The backup SRAM can still be used but its content
+ *   will be lost in the Standby and VBAT modes. Once set, the application must wait
+ *   that the Backup Regulator Ready flag (BRR) is set to indicate that the data
+ *   written into the RAM will be maintained in the Standby and VBAT modes.
  *
  * Input Parameters:
- *   regon - state to set it to
+ *   region - state to set it to
  *
  * Returned Value:
  *   None
@@ -365,16 +365,16 @@ bool stm32_pwr_getwuf(void)
  ************************************************************************************/
 
 #if defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F4XXX)
-void stm32_pwr_enablebreg(bool regon)
+void stm32_pwr_enablebreg(bool region)
 {
   uint16_t regval;
 
   regval  = stm32_pwr_getreg32(STM32_PWR_CSR_OFFSET);
   regval &= ~PWR_CSR_BRE;
-  regval |= regon ? PWR_CSR_BRE : 0;
+  regval |= region ? PWR_CSR_BRE : 0;
   stm32_pwr_putreg32(STM32_PWR_CSR_OFFSET, regval);
 
-  if (regon)
+  if (region)
     {
       while ((stm32_pwr_getreg32(STM32_PWR_CSR_OFFSET) & PWR_CSR_BRR) == 0);
     }
@@ -498,11 +498,9 @@ void stm32_pwr_disablepvd(void)
  *
  ************************************************************************************/
 
-#if defined(CONFIG_STM32_STM32F427) || defined(CONFIG_STM32_STM32F429) || \
-    defined(CONFIG_STM32_STM32F446) || defined(CONFIG_STM32_STM32F469)
+#if defined(CONFIG_STM32_HAVE_OVERDRIVE)
 void stm32_pwr_enableoverdrive(bool state)
 {
-
   /* Switch overdrive state */
 
   if (state)
@@ -518,7 +516,7 @@ void stm32_pwr_enableoverdrive(bool state)
 
   while ((stm32_pwr_getreg32(STM32_PWR_CSR_OFFSET) & PWR_CSR_ODRDY) == 0);
 
-  /* Set ODSWEN to switch to this new state*/
+  /* Set ODSWEN to switch to this new state */
 
   stm32_pwr_modifyreg32(STM32_PWR_CR_OFFSET, 0, PWR_CR_ODSWEN);
 

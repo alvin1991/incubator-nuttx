@@ -174,7 +174,12 @@ static int romfs_open(FAR struct file *filep, FAR const char *relpath,
 
   /* Check if the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret != OK)
     {
@@ -268,6 +273,7 @@ static int romfs_open(FAR struct file *filep, FAR const char *relpath,
   if (ret < 0)
     {
       ferr("ERROR: Failed to locate start of file data: %d\n", ret);
+      kmm_free(rf);
       goto errout_with_semaphore;
     }
 
@@ -277,6 +283,7 @@ static int romfs_open(FAR struct file *filep, FAR const char *relpath,
   if (ret < 0)
     {
       ferr("ERROR: Failed configure buffering: %d\n", ret);
+      kmm_free(rf);
       goto errout_with_semaphore;
     }
 
@@ -383,7 +390,12 @@ static ssize_t romfs_read(FAR struct file *filep, FAR char *buffer,
 
   /* Make sure that the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return (ssize_t)ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret != OK)
     {
@@ -416,7 +428,6 @@ static ssize_t romfs_read(FAR struct file *filep, FAR char *buffer,
       offset     = rf->rf_startoffset + filep->f_pos;
       sector     = SEC_NSECTORS(rm, offset);
       sectorndx  = offset & SEC_NDXMASK(rm);
-      bytesread  = 0;
 
       /* Check if the user has provided a buffer large enough to
        * hold one or more complete sectors -AND- the read is
@@ -440,7 +451,6 @@ static ssize_t romfs_read(FAR struct file *filep, FAR char *buffer,
               goto errout_with_semaphore;
             }
 
-          sector    += nsectors;
           bytesread  = nsectors * rm->rm_hwsectorsize;
         }
       else
@@ -467,14 +477,9 @@ static ssize_t romfs_read(FAR struct file *filep, FAR char *buffer,
 
               bytesread = buflen;
             }
-          else
-            {
-              /* We will read to the end of the buffer (or beyond) */
 
-             sector++;
-            }
-
-          finfo("Return %d bytes from sector offset %d\n", bytesread, sectorndx);
+          finfo("Return %d bytes from sector offset %d\n",
+                bytesread, sectorndx);
           memcpy(userbuffer, &rf->rf_buffer[sectorndx], bytesread);
         }
 
@@ -545,7 +550,12 @@ static off_t romfs_seek(FAR struct file *filep, off_t offset, int whence)
 
   /* Make sure that the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return (off_t)ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret != OK)
     {
@@ -642,7 +652,12 @@ static int romfs_dup(FAR const struct file *oldp, FAR struct file *newp)
 
   /* Check if the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret != OK)
     {
@@ -735,7 +750,12 @@ static int romfs_fstat(FAR const struct file *filep, FAR struct stat *buf)
 
   /* Check if the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret >= 0)
     {
@@ -776,7 +796,12 @@ static int romfs_opendir(FAR struct inode *mountpt, FAR const char *relpath,
 
   /* Make sure that the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret != OK)
     {
@@ -844,7 +869,12 @@ static int romfs_readdir(FAR struct inode *mountpt,
 
   /* Make sure that the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret != OK)
     {
@@ -881,7 +911,8 @@ static int romfs_readdir(FAR struct inode *mountpt,
 
       /* Save the filename */
 
-      ret = romfs_parsefilename(rm, dir->u.romfs.fr_curroffset, dir->fd_dir.d_name);
+      ret = romfs_parsefilename(rm, dir->u.romfs.fr_curroffset,
+                                dir->fd_dir.d_name);
       if (ret < 0)
         {
           ferr("ERROR: romfs_parsefilename failed: %d\n", ret);
@@ -902,6 +933,11 @@ static int romfs_readdir(FAR struct inode *mountpt,
       else if (IS_FILE(next))
         {
           dir->fd_dir.d_type = DTYPE_FILE;
+          break;
+        }
+      else if (IS_SOFTLINK(next))
+        {
+          dir->fd_dir.d_type = DTYPE_LINK;
           break;
         }
     }
@@ -936,7 +972,12 @@ static int romfs_rewinddir(FAR struct inode *mountpt,
 
   /* Make sure that the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret == OK)
     {
@@ -984,7 +1025,8 @@ static int romfs_bind(FAR struct inode *blkdriver, FAR const void *data,
 
   /* Create an instance of the mountpt state structure */
 
-  rm = (FAR struct romfs_mountpt_s *)kmm_zalloc(sizeof(struct romfs_mountpt_s));
+  rm = (FAR struct romfs_mountpt_s *)
+    kmm_zalloc(sizeof(struct romfs_mountpt_s));
   if (!rm)
     {
       ferr("ERROR: Failed to allocate mountpoint structure\n");
@@ -1062,7 +1104,12 @@ static int romfs_unbind(FAR void *handle, FAR struct inode **blkdriver,
 
   /* Check if there are sill any files opened on the filesystem. */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
   if (rm->rm_head)
     {
       /* We cannot unmount now.. there are open files */
@@ -1086,13 +1133,13 @@ static int romfs_unbind(FAR void *handle, FAR struct inode **blkdriver,
             {
               if (INODE_IS_BLOCK(inode) && inode->u.i_bops->close != NULL)
                 {
-                  (void)inode->u.i_bops->close(inode);
+                  inode->u.i_bops->close(inode);
                 }
 
               /* We hold a reference to the block driver but should
-               * not but mucking with inodes in this context.  So, we will just return
-               * our contained reference to the block driver inode and let the umount
-               * logic dispose of it.
+               * not but mucking with inodes in this context.  So, we will
+               * just return our contained reference to the block driver
+               * inode and let the umount logic dispose of it.
                */
 
               if (blkdriver)
@@ -1142,7 +1189,12 @@ static int romfs_statfs(FAR struct inode *mountpt, FAR struct statfs *buf)
 
   /* Check if the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret < 0)
     {
@@ -1193,11 +1245,20 @@ static int romfs_stat_common(uint8_t type, uint32_t size,
       buf->st_mode = S_IFDIR | S_IROTH | S_IXOTH | S_IRGRP | S_IXGRP |
                      S_IRUSR | S_IXUSR;
     }
-  else if (IS_FILE(type))
+  else if (IS_FILE(type) || IS_SOFTLINK(type))
     {
+      if (IS_FILE(type))
+        {
+          buf->st_mode = S_IFREG;
+        }
+      else
+        {
+          buf->st_mode = S_IFLNK;
+        }
+
       /* It's a read-only file name */
 
-      buf->st_mode = S_IFREG | S_IROTH | S_IRGRP | S_IRUSR;
+      buf->st_mode |= S_IROTH | S_IRGRP | S_IRUSR;
       if (IS_EXECUTABLE(type))
         {
           /* It's a read-execute file name */
@@ -1248,7 +1309,12 @@ static int romfs_stat(FAR struct inode *mountpt, FAR const char *relpath,
 
   /* Check if the mount is still healthy */
 
-  romfs_semtake(rm);
+  ret = romfs_semtake(rm);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
   ret = romfs_checkmount(rm);
   if (ret != OK)
     {

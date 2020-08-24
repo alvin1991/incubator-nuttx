@@ -126,7 +126,7 @@ static int altmdm_initialize(FAR struct altmdm_dev_s *priv)
 
   priv->poweron = 0;
 
-  /* Intialize ALTMDM SPI driver. */
+  /* Initialize ALTMDM SPI driver. */
 
   ret = altmdm_spi_init(priv);
 
@@ -145,7 +145,7 @@ static int altmdm_uninitialize(FAR struct altmdm_dev_s *priv)
 {
   int ret;
 
-  /* Unintialize ALTMDM SPI driver */
+  /* Uninitialize ALTMDM SPI driver */
 
   altmdm_spi_uninit(priv);
 
@@ -336,7 +336,7 @@ static int altmdm_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
       }
       break;
 
-    case MODEM_IOC_PM_INITWAKELOCK:    /* Initialze wakelock resource. */
+    case MODEM_IOC_PM_INITWAKELOCK:    /* Initialize wakelock resource. */
       {
         ret = altmdm_pm_initwakelock((struct altmdm_pm_wakelock_s *)arg);
       }
@@ -368,6 +368,7 @@ static int altmdm_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 
     default:
       m_err("Unrecognized cmd: 0x%08x\n", cmd);
+      ret = -ENOTTY;
       break;
     }
 
@@ -394,7 +395,8 @@ static int altmdm_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
  *
  ****************************************************************************/
 
-FAR void *altmdm_register(FAR const char *devpath, FAR struct spi_dev_s *dev)
+FAR void *altmdm_register(FAR const char *devpath, FAR struct spi_dev_s *dev,
+                          FAR const struct altmdm_lower_s *lower)
 {
   FAR struct altmdm_dev_s *priv;
   int ret;
@@ -409,6 +411,7 @@ FAR void *altmdm_register(FAR const char *devpath, FAR struct spi_dev_s *dev)
 
   priv->spi = dev;
   priv->path = strdup(devpath);
+  priv->lower = lower;
 
   ret = altmdm_initialize(priv);
   if (ret < 0)
@@ -453,7 +456,7 @@ void altmdm_unregister(FAR void *handle)
 
       altmdm_uninitialize(priv);
 
-      (void)unregister_driver(priv->path);
+      unregister_driver(priv->path);
 
       kmm_free(priv->path);
       kmm_free(priv);

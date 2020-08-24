@@ -82,8 +82,8 @@ static int wdog_daemon(int argc, char *argv[])
   ret = file_ioctl(&filestruct, WDIOC_START, 0);
   if (ret < 0)
     {
-        wderr("ERROR: ioctl(WDIOC_START) failed: %d\n", errno);
-        goto exit_close_dev;
+      wderr("ERROR: ioctl(WDIOC_START) failed: %d\n", errno);
+      goto exit_close_dev;
     }
 
   while (1)
@@ -101,6 +101,7 @@ static int wdog_daemon(int argc, char *argv[])
     }
 
 exit_close_dev:
+
   /* Close watchdog device and exit. */
 
   file_close(&filestruct);
@@ -143,9 +144,9 @@ int photon_watchdog_initialize(void)
 # error "No watchdog configured"
 #endif
 
-  /*  Close watchdog as it is not needed here anymore */
+  /* Close watchdog as it is not needed here anymore */
 
-  (void)file_close(&filestruct);
+  file_close(&filestruct);
 
   if (ret < 0)
     {

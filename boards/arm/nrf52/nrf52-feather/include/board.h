@@ -43,7 +43,7 @@
 #include <nuttx/config.h>
 #include <stdbool.h>
 
-#if defined(CONFIG_ARCH_IRQBUTTONS) && defined(CONFIG_NRF52_GPIO_IRQ)
+#if defined(CONFIG_ARCH_IRQBUTTONS) && defined(CONFIG_NRF52_GPIOTE)
 #  include <nuttx/irq.h>
 #endif
 
@@ -51,11 +51,11 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-/* Clocking ****************************************************************/
+/* Clocking *****************************************************************/
 
 #define BOARD_SYSTICK_CLOCK         (64000000)
 
-/* LED definitions *********************************************************/
+/* Clocking *****************************************************************/
 
 /* A low output illuminates the LED.
  *
@@ -88,9 +88,9 @@
  * control of the application.  The following interfaces are then available
  * for application control of the LEDs:
  *
- *  void board_userled_initialize(void);
+ *  uint32_t board_userled_initialize(void);
  *  void board_userled(int led, bool ledon);
- *  void board_userled_all(uint8_t ledset);
+ *  void board_userled_all(uint32_t ledset);
  */
 
 /* Button definitions *******************************************************/
@@ -106,4 +106,4 @@
 #define BOARD_UART0_RX_PIN  (GPIO_INPUT  | GPIO_PORT0 | GPIO_PIN(8))
 #define BOARD_UART0_TX_PIN  (GPIO_OUTPUT | GPIO_VALUE_ONE | GPIO_PORT0 | GPIO_PIN(6))
 
-#endif  /* __BOARDS_ARM_NRF52_NRF52_FEATHER_INCLUDE_BOARD_H */
+#endif /* __BOARDS_ARM_NRF52_NRF52_FEATHER_INCLUDE_BOARD_H */

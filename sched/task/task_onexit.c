@@ -72,7 +72,7 @@
  *
  *    NOTE 2: CONFIG_SCHED_ONEXIT must be defined to enable this function
  *
- *    Limitiations in the current implementation:
+ *    Limitations in the current implementation:
  *
  *      1. Only a single on_exit function can be registered unless
  *         CONFIG_SCHED_ONEXIT_MAX defines a larger number.
@@ -91,11 +91,10 @@
 
 int on_exit(CODE void (*func)(int, FAR void *), FAR void *arg)
 {
-#if defined(CONFIG_SCHED_ONEXIT_MAX) && CONFIG_SCHED_ONEXIT_MAX > 1
   FAR struct tcb_s *tcb = this_task();
   FAR struct task_group_s *group = tcb->group;
-  int   index;
-  int   ret = ENOSPC;
+  int index;
+  int ret = ENOSPC;
 
   DEBUGASSERT(group);
 
@@ -105,18 +104,18 @@ int on_exit(CODE void (*func)(int, FAR void *), FAR void *arg)
     {
       sched_lock();
 
-      /* Search for the first available slot.  on_exit() functions are registered
-       * from lower to higher arry indices; they must be called in the reverse
-       * order of registration when task exists, i.e., from higher to lower
-       * indices.
+      /* Search for the first available slot.  on_exit() functions are
+       * registered from lower to higher array indices; they must be called
+       * in the reverse order of registration when task exists, i.e.,
+       * from higher to lower indices.
        */
 
-      for (index = 0; index < CONFIG_SCHED_ONEXIT_MAX; index++)
+      for (index = 0; index < CONFIG_SCHED_EXIT_MAX; index++)
         {
-          if (!group->tg_onexitfunc[index])
+          if (!group->tg_exit[index].func.on)
             {
-              group->tg_onexitfunc[index] = func;
-              group->tg_onexitarg[index]  = arg;
+              group->tg_exit[index].func.on = func;
+              group->tg_exit[index].arg     = arg;
               ret = OK;
               break;
             }
@@ -126,26 +125,6 @@ int on_exit(CODE void (*func)(int, FAR void *), FAR void *arg)
     }
 
   return ret;
-#else
-  FAR struct tcb_s *tcb = this_task();
-  FAR struct task_group_s *group = tcb->group;
-  int   ret = ENOSPC;
-
-  DEBUGASSERT(group);
-
-  /* The following must be atomic */
-
-  sched_lock();
-  if (func && !group->tg_onexitfunc)
-    {
-      group->tg_onexitfunc = func;
-      group->tg_onexitarg  = arg;
-      ret = OK;
-    }
-
-  sched_unlock();
-  return ret;
-#endif
 }
 
 #endif /* CONFIG_SCHED_ONEXIT */

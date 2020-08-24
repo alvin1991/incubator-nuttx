@@ -63,15 +63,16 @@
  *
  * Description:
  *   board_button_initialize() must be called to initialize button resources.
- *   After that, board_buttons() may be called to collect the current state of
- *   all buttons or board_button_irq() may be called to register button
+ *   After that, board_buttons() may be called to collect the current state
+ *   of all buttons or board_button_irq() may be called to register button
  *   interrupt handlers.
  *
  ****************************************************************************/
 
-void board_button_initialize(void)
+uint32_t board_button_initialize(void)
 {
-  (void)sam_configport(PORT_SW0);
+  sam_configport(PORT_SW0);
+  return NUM_BUTTONS;
 }
 
 /****************************************************************************
@@ -127,7 +128,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
       /* Configure the interrupt */
 
       sam_portirq(IRQ_SW0);
-      (void)irq_attach(IRQ_SW0, irqhandler, arg);
+      irq_attach(IRQ_SW0, irqhandler, arg);
       sam_portirqenable(IRQ_SW0);
 
       leave_critical_section(flags);

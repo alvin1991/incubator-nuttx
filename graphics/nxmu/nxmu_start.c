@@ -119,7 +119,7 @@ static int nx_server(int argc, char *argv[])
 
   /* Turn the LCD on at 75% power */
 
-  (void)dev->setpower(dev, ((3 * CONFIG_LCD_MAXPOWER + 3) / 4));
+  dev->setpower(dev, ((3 * CONFIG_LCD_MAXPOWER + 3) / 4));
 
 #else /* CONFIG_NX_LCDDRIVER */
   /* Initialize the frame buffer device. */
@@ -196,13 +196,13 @@ int nxmu_start(int display, int plane)
     {
       FAR char display_str[8];
       FAR char plane_str[8];
+      pid_t server;
       FAR char * const argv[3] =
       {
         (FAR char * const)display_str,
         (FAR char * const)plane_str,
         NULL
       };
-      pid_t server;
 
       /* Start the server kernel thread */
 
@@ -225,7 +225,7 @@ int nxmu_start(int display, int plane)
        * this operation cannot be done from the IDLE thread!
        */
 
-      nxsig_usleep(50*1000);
+      nxsig_usleep(50 * 1000);
     }
 
   return OK;

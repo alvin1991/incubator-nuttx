@@ -32,6 +32,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 /* A single button, PB_USER1 (PB2), is available on the SAMA5D4-EK:
  *
  * ------------------------------ ------------------- ----------------------
@@ -80,9 +81,10 @@
  *
  ****************************************************************************/
 
-void board_button_initialize(void)
+uint32_t board_button_initialize(void)
 {
-  (void)sam_configpio(PIO_BTN_USER);
+  sam_configpio(PIO_BTN_USER);
+  return NUM_BUTTONS;
 }
 
 /****************************************************************************
@@ -138,7 +140,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
           /* Configure the interrupt */
 
           sam_pioirq(PIO_BTN_USER);
-          (void)irq_attach(IRQ_BTN_USER, irqhandler, arg);
+          irq_attach(IRQ_BTN_USER, irqhandler, arg);
           sam_pioirqenable(IRQ_BTN_USER);
         }
       else
@@ -146,7 +148,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
           /* Disable and detach the interrupt */
 
           sam_pioirqdisable(IRQ_BTN_USER);
-          (void)irq_detach(IRQ_BTN_USER);
+          irq_detach(IRQ_BTN_USER);
         }
 
       leave_critical_section(flags);

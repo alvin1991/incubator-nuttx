@@ -40,7 +40,6 @@
 #include <nuttx/config.h>
 
 #include <pthread.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 
@@ -74,19 +73,20 @@ int work_lock(void)
   int ret;
 
 #ifdef CONFIG_BUILD_PROTECTED
-  ret = sem_wait(&g_usrsem);
+  ret = _SEM_WAIT(&g_usrsem);
   if (ret < 0)
     {
-      DEBUGASSERT(errno == EINTR || errno == ECANCELED);
+      DEBUGASSERT(_SEM_ERRNO(ret) == EINTR ||
+                  _SEM_ERRNO(ret) == ECANCELED);
       return -EINTR;
     }
 #else
-   ret = pthread_mutex_lock(&g_usrmutex);
-   if (ret != 0)
-     {
-       DEBUGASSERT(ret == EINTR);
-       return -EINTR;
-     }
+  ret = pthread_mutex_lock(&g_usrmutex);
+  if (ret != 0)
+    {
+      DEBUGASSERT(ret == EINTR);
+      return -EINTR;
+    }
 #endif
 
   return ret;
@@ -109,9 +109,9 @@ int work_lock(void)
 void work_unlock(void)
 {
 #ifdef CONFIG_BUILD_PROTECTED
-  (void)sem_post(&g_usrsem);
+  _SEM_POST(&g_usrsem);
 #else
-  (void)pthread_mutex_unlock(&g_usrmutex);
+  pthread_mutex_unlock(&g_usrmutex);
 #endif
 }
 

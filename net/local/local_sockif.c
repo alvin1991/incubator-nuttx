@@ -110,6 +110,10 @@ const struct sock_intf_s g_local_sockif =
   NULL,              /* si_sendfile */
 #endif
   local_recvfrom,    /* si_recvfrom */
+#ifdef CONFIG_NET_CMSG
+  NULL,              /* si_recvmsg */
+  NULL,              /* si_sendmsg */
+#endif
   local_close        /* si_close */
 };
 
@@ -161,7 +165,8 @@ static int local_sockif_alloc(FAR struct socket *psock)
  *   specific socket fields.
  *
  * Input Parameters:
- *   psock    A pointer to a user allocated socket structure to be initialized.
+ *   psock    A pointer to a user allocated socket structure
+ *            to be initialized.
  *   protocol (see sys/socket.h)
  *
  * Returned Value:
@@ -235,7 +240,7 @@ static sockcaps_t local_sockcaps(FAR struct socket *psock)
  * Name: local_addref
  *
  * Description:
- *   Increment the refernce count on the underlying connection structure.
+ *   Increment the reference count on the underlying connection structure.
  *
  * Input Parameters:
  *   psock - Socket structure of the socket whose reference count will be
@@ -309,13 +314,6 @@ static int local_bind(FAR struct socket *psock,
           /* Bind the Unix domain connection structure */
 
           ret = psock_local_bind(psock, addr, addrlen);
-
-          /* Mark the socket bound */
-
-          if (ret >= 0)
-            {
-              psock->s_flags |= _SF_BOUND;
-            }
         }
         break;
 #endif /* CONFIG_NET_LOCAL_STREAM || CONFIG_NET_LOCAL_DGRAM */
@@ -392,7 +390,7 @@ static int local_getsockname(FAR struct socket *psock,
         }
       else /* conn->lctype = LOCAL_TYPE_PATHNAME */
         {
-          /* Get the full length of the socket name (including null terminator) */
+          /* Get the full length of the socket name (incl. null terminator) */
 
           int namelen = strlen(conn->lc_path) + 1;
 
@@ -409,7 +407,7 @@ static int local_getsockname(FAR struct socket *psock,
 
           /* Copy the path into the user address structure */
 
-          (void)strncpy(unaddr->sun_path, conn->lc_path, namelen);
+          strncpy(unaddr->sun_path, conn->lc_path, namelen);
           unaddr->sun_path[pathlen - 1] = '\0';
 
           *addrlen = sizeof(sa_family_t) + namelen;
@@ -513,7 +511,7 @@ int local_listen(FAR struct socket *psock, int backlog)
  *   addrlen   Length of actual 'addr'
  *
  * Returned Value:
- *   0 on success; a negated errno value on failue.  See connect() for the
+ *   0 on success; a negated errno value on failure.  See connect() for the
  *   list of appropriate errno values to be returned.
  *
  ****************************************************************************/
@@ -597,12 +595,13 @@ static int local_connect(FAR struct socket *psock,
  * Input Parameters:
  *   psock    Reference to the listening socket structure
  *   addr     Receives the address of the connecting client
- *   addrlen  Input: allocated size of 'addr', Return: returned size of 'addr'
+ *   addrlen  Input: allocated size of 'addr',
+ *            Return: returned size of 'addr'
  *   newsock  Location to return the accepted socket information.
  *
  * Returned Value:
  *   Returns 0 (OK) on success.  On failure, it returns a negated errno
- *   value.  See accept() for a desrciption of the approriate error value.
+ *   value.  See accept() for a desrciption of the appropriate error value.
  *
  * Assumptions:
  *   The network is locked.
@@ -724,7 +723,7 @@ static ssize_t local_send(FAR struct socket *psock, FAR const void *buf,
  * Name: local_sendto
  *
  * Description:
- *   Implements the sendto() operation for the case of the local, Unix socket.
+ *   Implements the sendto() operation for the case of the local Unix socket.
  *
  * Input Parameters:
  *   psock    A pointer to a NuttX-specific, internal socket structure

@@ -90,23 +90,12 @@ static dq_queue_t g_active_netlink_connections;
 
 static void _netlink_semtake(FAR sem_t *sem)
 {
-  int ret;
-
-  /* Take the semaphore (perhaps waiting) */
-
-  while ((ret = net_lockedwait(sem)) < 0)
-    {
-      /* The only case that an error should occur here is if
-       * the wait was awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
-    }
+  net_lockedwait_uninterruptible(sem);
 }
 
 static void _netlink_semgive(FAR sem_t *sem)
 {
-  (void)nxsem_post(sem);
+  nxsem_post(sem);
 }
 
 /****************************************************************************
@@ -125,25 +114,11 @@ static void _netlink_semgive(FAR sem_t *sem)
 
 static void netlink_response_available(FAR void *arg)
 {
-  /* The entire notifier entry is passed to us.  That is because we are
-   * responsible for disposing of the entry via kmm_free() when we are
-   * finished with it.
-   */
-
-  FAR struct work_notifier_entry_s *notifier =
-    (FAR struct work_notifier_entry_s *)arg;
-  FAR sem_t *waitsem;
-
-  DEBUGASSERT(notifier != NULL && notifier->info.qualifier != NULL);
-  waitsem = (FAR sem_t *)notifier->info.arg;
-
-  /* Free the notifier entry */
-
-  kmm_free(notifier);
+  DEBUGASSERT(arg != NULL);
 
   /* wakeup the waiter */
 
-  nxsem_post(waitsem);
+  _netlink_semgive(arg);
 }
 
 /****************************************************************************
@@ -154,7 +129,7 @@ static void netlink_response_available(FAR void *arg)
  * Name: netlink_initialize()
  *
  * Description:
- *   Initialize the User Socket connection structures.  Called once and only
+ *   Initialize the NetLink connection structures.  Called once and only
  *   from the networking layer.
  *
  ****************************************************************************/
@@ -196,7 +171,8 @@ FAR struct netlink_conn_s *netlink_alloc(void)
   /* The free list is protected by a semaphore (that behaves like a mutex). */
 
   _netlink_semtake(&g_free_sem);
-  conn = (FAR struct netlink_conn_s *)dq_remfirst(&g_free_netlink_connections);
+  conn = (FAR struct netlink_conn_s *)
+           dq_remfirst(&g_free_netlink_connections);
   if (conn != NULL)
     {
       /* Make sure that the connection is marked as uninitialized */
@@ -216,8 +192,8 @@ FAR struct netlink_conn_s *netlink_alloc(void)
  * Name: netlink_free()
  *
  * Description:
- *   Free a NetLink connection structure that is no longer in use. This should
- *   be done by the implementation of close().
+ *   Free a NetLink connection structure that is no longer in use. This
+ *   should be done by the implementation of close().
  *
  ****************************************************************************/
 
@@ -276,27 +252,6 @@ FAR struct netlink_conn_s *netlink_nextconn(FAR struct netlink_conn_s *conn)
 }
 
 /****************************************************************************
- * Name: netlink_active
- *
- * Description:
- *   Find a connection structure that is the appropriate connection for the
- *   provided NetLink address
- *
- * Assumptions:
- *
- ****************************************************************************/
-
-FAR struct netlink_conn_s *netlink_active(FAR struct sockaddr_nl *addr)
-{
-  /* This function is used to handle routing of incoming messages to sockets
-   * connected to the address.  There is no such use case for NetLink
-   * sockets.
-   */
-
-  return NULL;
-}
-
-/****************************************************************************
  * Name: netlink_add_response
  *
  * Description:
@@ -318,13 +273,10 @@ FAR struct netlink_conn_s *netlink_active(FAR struct sockaddr_nl *addr)
 void netlink_add_response(NETLINK_HANDLE handle,
                           FAR struct netlink_response_s *resp)
 {
-  FAR struct socket *psock;
   FAR struct netlink_conn_s *conn;
 
-  psock = (FAR struct socket *)handle;
-  DEBUGASSERT(psock != NULL && psock->s_conn != NULL && resp != NULL);
-
-  conn = (FAR struct netlink_conn_s *)psock->s_conn;
+  conn = handle;
+  DEBUGASSERT(conn != NULL && resp != NULL);
 
   /* Add the response to the end of the FIFO list */
 
@@ -335,6 +287,78 @@ void netlink_add_response(NETLINK_HANDLE handle,
 
   netlink_notifier_signal(conn);
   net_unlock();
+}
+
+/****************************************************************************
+ * Name: netlink_add_broadcast
+ *
+ * Description:
+ *   Add broadcast data to all interested netlink connections.
+ *
+ *   Note:  The network will be momentarily locked to support exclusive
+ *   access to the pending response list.
+ *
+ * Input Parameters:
+ *   group - The broadcast group index.
+ *   data  - The broadcast data.  The memory referenced by 'data'
+ *           must have been allocated via kmm_malloc().  It will be freed
+ *           using kmm_free() after it has been consumed.
+ *
+ ****************************************************************************/
+
+void netlink_add_broadcast(int group, FAR struct netlink_response_s *data)
+{
+  FAR struct netlink_conn_s *conn = NULL;
+  int first = 1;
+
+  DEBUGASSERT(data != NULL);
+
+  net_lock();
+
+  while ((conn = netlink_nextconn(conn)) != NULL)
+    {
+      if ((conn->groups & (1 << (group - 1))) == 0)
+        {
+          continue;
+        }
+
+      /* Duplicate the package except the first loop */
+
+      if (!first)
+        {
+          FAR struct netlink_response_s *tmp;
+          size_t len;
+
+          len = sizeof(sq_entry_t) + data->msg.nlmsg_len;
+          tmp = kmm_malloc(len);
+          if (tmp == NULL)
+            {
+              break;
+            }
+
+          memcpy(tmp, data, len);
+          data = tmp;
+        }
+
+      first = 0;
+
+      /* Add the response to the end of the FIFO list */
+
+      sq_addlast(&data->flink, &conn->resplist);
+
+      /* Notify any waiters that a response is available */
+
+      netlink_notifier_signal(conn);
+    }
+
+  net_unlock();
+
+  /* Drop the package if nobody is interested in */
+
+  if (first)
+    {
+      kmm_free(data);
+    }
 }
 
 /****************************************************************************
@@ -355,14 +379,11 @@ void netlink_add_response(NETLINK_HANDLE handle,
  ****************************************************************************/
 
 FAR struct netlink_response_s *
-  netlink_tryget_response(FAR struct socket *psock)
+netlink_tryget_response(FAR struct netlink_conn_s *conn)
 {
   FAR struct netlink_response_s *resp;
-  FAR struct netlink_conn_s *conn;
 
-  DEBUGASSERT(psock != NULL && psock->s_conn != NULL);
-
-  conn = (FAR struct netlink_conn_s *)psock->s_conn;
+  DEBUGASSERT(conn != NULL);
 
   /* Return the response at the head of the pending response list (may be
    * NULL).
@@ -394,15 +415,12 @@ FAR struct netlink_response_s *
  ****************************************************************************/
 
 FAR struct netlink_response_s *
-  netlink_get_response(FAR struct socket *psock)
+netlink_get_response(FAR struct netlink_conn_s *conn)
 {
   FAR struct netlink_response_s *resp;
-  FAR struct netlink_conn_s *conn;
   int ret;
 
-  DEBUGASSERT(psock != NULL && psock->s_conn != NULL);
-
-  conn = (FAR struct netlink_conn_s *)psock->s_conn;
+  DEBUGASSERT(conn != NULL);
 
   /* Loop, until a response is received.  A loop is used because in the case
    * of multiple waiters, all waiters will be awakened, but only the highest
@@ -410,14 +428,14 @@ FAR struct netlink_response_s *
    */
 
   net_lock();
-  while ((resp = netlink_tryget_response(psock)) == NULL)
+  while ((resp = netlink_tryget_response(conn)) == NULL)
     {
       sem_t waitsem;
 
       /* Set up a semaphore to notify us when a response is queued. */
 
-      (void)sem_init(&waitsem, 0, 0);
-      (void)nxsem_setprotocol(&waitsem, SEM_PRIO_NONE);
+      sem_init(&waitsem, 0, 0);
+      nxsem_set_protocol(&waitsem, SEM_PRIO_NONE);
 
       /* Set up a notifier to post the semaphore when a response is
        * received.
@@ -445,7 +463,6 @@ FAR struct netlink_response_s *
 
       if (ret < 0)
         {
-          resp = NULL;
           break;
         }
     }
@@ -465,80 +482,15 @@ FAR struct netlink_response_s *
  *
  ****************************************************************************/
 
-bool netlink_check_response(FAR struct socket *psock)
+bool netlink_check_response(FAR struct netlink_conn_s *conn)
 {
-  FAR struct netlink_conn_s *conn;
-
-  DEBUGASSERT(psock != NULL && psock->s_conn != NULL);
-  conn = (FAR struct netlink_conn_s *)psock->s_conn;
+  DEBUGASSERT(conn != NULL);
 
   /* Check if the response is available.  It is not necessary to lock the
    * network because the sq_peek() is an atomic operation.
    */
 
   return (sq_peek(&conn->resplist) != NULL);
-}
-
-/****************************************************************************
- * Name: netlink_notify_response
- *
- * Description:
- *   Notify a thread when a response is available.  The thread will be
- *   notified via work queue notifier when the response becomes available.
- *
- * Returned Value:
- *   Zero (OK) is returned if the response is already available.  No
- *     notification will be sent.
- *   One is returned if the notification was successfully setup.
- *   A negated errno value is returned on any failure.
- *
- ****************************************************************************/
-
-int netlink_notify_response(FAR struct socket *psock)
-{
-  FAR struct netlink_conn_s *conn;
-  int ret = 0;
-
-  DEBUGASSERT(psock != NULL && psock->s_conn != NULL);
-  conn = (FAR struct netlink_conn_s *)psock->s_conn;
-
-  /* Check if the response is available */
-
-  net_lock();
-  if (((FAR struct netlink_response_s *)sq_peek(&conn->resplist)) == NULL)
-    {
-      sem_t waitsem;
-
-      /* No.. Set up a semaphore to notify us when a response is queued. */
-
-      (void)sem_init(&waitsem, 0, 0);
-      (void)nxsem_setprotocol(&waitsem, SEM_PRIO_NONE);
-
-      /* Set up a notifier to post the semaphore when a response is
-       * received.
-       */
-
-      ret = netlink_notifier_setup(netlink_response_available, conn,
-                                   &waitsem);
-      if (ret < 0)
-        {
-          nerr("ERROR: netlink_notifier_setup() failed: %d\n", ret);
-        }
-      else
-        {
-          /* Wait for a reponse to be queued */
-
-          _netlink_semtake(&waitsem);
-        }
-
-      /* Tear-down the notifier and the semaphore */
-
-      netlink_notifier_teardown(conn);
-      sem_destroy(&waitsem);
-    }
-
-  net_unlock();
-  return ret < 0 ? ret : OK;
 }
 
 #endif /* CONFIG_NET_NETLINK */

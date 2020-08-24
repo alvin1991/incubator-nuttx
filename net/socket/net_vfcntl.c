@@ -86,7 +86,9 @@ int psock_vfcntl(FAR struct socket *psock, int cmd, va_list ap)
       return -EBADF;
     }
 
-  /* Interrupts must be disabled in order to perform operations on socket structures */
+  /* Interrupts must be disabled in order to perform operations on socket
+   * structures
+   */
 
   net_lock();
   switch (cmd)
@@ -97,34 +99,58 @@ int psock_vfcntl(FAR struct socket *psock, int cmd, va_list ap)
          * or equal to the third argument, arg, taken as an integer of type
          * int. The new file descriptor shall refer to the same open file
          * description as the original file descriptor, and shall share any
-         * locks.  The FD_CLOEXEC flag associated  with the new file descriptor
-         * shall be cleared to keep the file open across calls to one of the
-         * exec functions.
+         * locks.  The FD_CLOEXEC flag associated  with the new file
+         * descriptor shall be cleared to keep the file open across calls
+         * to one of the exec functions.
          */
 
         {
           /* Does not set the errno value on failure */
 
-          ret = psock_dupsd(psock, va_arg(ap, int));
+          ret = psock_dup(psock, va_arg(ap, int));
         }
         break;
 
       case F_GETFD:
-        /* Get the file descriptor flags defined in <fcntl.h> that are associated
-         * with the file descriptor fd.  File descriptor flags are associated
-         * with a single file descriptor and do not affect other file descriptors
-         * that refer to the same file.
+        /* Get the file descriptor flags defined in <fcntl.h> that are
+         * associated with the file descriptor fd.  File descriptor flags
+         * are associated with a single file descriptor and do not affect
+         * other file descriptors that refer to the same file.
          */
+
+        {
+          ret = _SS_ISCLOEXEC(psock->s_flags) ? FD_CLOEXEC : 0;
+        }
+        break;
 
       case F_SETFD:
-        /* Set the file descriptor flags defined in <fcntl.h>, that are associated
-         * with fd, to the third argument, arg, taken as type int. If the
-         * FD_CLOEXEC flag in the third argument is 0, the file shall remain open
-         * across the exec functions; otherwise, the file shall be closed upon
-         * successful execution of one  of  the  exec  functions.
+        /* Set the file descriptor flags defined in <fcntl.h>, that are
+         * associated with fd, to the third argument, arg, taken as type int.
+         * If the FD_CLOEXEC flag in the third argument is 0, the file shall
+         * remain open across the exec functions; otherwise, the file shall
+         * be closed upon successful execution of one of the exec functions.
          */
 
-         ret = -ENOSYS; /* F_GETFD and F_SETFD not implemented */
+        {
+          int oflags = va_arg(ap, int);
+
+          if (oflags & ~FD_CLOEXEC)
+            {
+              ret = -ENOSYS;
+              break;
+            }
+
+          if (oflags & FD_CLOEXEC)
+            {
+              psock->s_flags |= _SF_CLOEXEC;
+            }
+          else
+            {
+              psock->s_flags &= ~_SF_CLOEXEC;
+            }
+
+          ret = OK;
+         }
          break;
 
       case F_GETFL:
@@ -161,12 +187,13 @@ int psock_vfcntl(FAR struct socket *psock, int cmd, va_list ap)
         break;
 
       case F_SETFL:
-        /* Set the file status flags, defined in <fcntl.h>, for the file description
-         * associated with fd from the corresponding  bits in the third argument,
-         * arg, taken as type int. Bits corresponding to the file access mode and
-         * the file creation flags, as defined in <fcntl.h>, that are set in arg shall
-         * be ignored. If any bits in arg other than those mentioned here are changed
-         * by the application, the result is unspecified.
+        /* Set the file status flags, defined in <fcntl.h>, for the file
+         * description associated with fd from the corresponding bits in
+         * the third argument, arg, taken as type int. Bits corresponding
+         * to the file access mode and the file creation flags, as defined
+         * in <fcntl.h>, that are set in arg will be ignored. If any bits
+         * in arg other than those mentioned here are changed by the
+         * application, the result is unspecified.
          */
 
         {
@@ -321,4 +348,3 @@ int net_vfcntl(int sockfd, int cmd, va_list ap)
 {
   return psock_vfcntl(sockfd_socket(sockfd), cmd, ap);
 }
-

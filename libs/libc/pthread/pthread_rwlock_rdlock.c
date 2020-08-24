@@ -44,8 +44,6 @@
 #include <errno.h>
 #include <debug.h>
 
-#include <nuttx/semaphore.h>
-
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -55,7 +53,7 @@ static void rdlock_cleanup(FAR void *arg)
 {
   FAR pthread_rwlock_t *rw_lock = (FAR pthread_rwlock_t *)arg;
 
-  (void)pthread_mutex_unlock(&rw_lock->lock);
+  pthread_mutex_unlock(&rw_lock->lock);
 }
 #endif
 
@@ -115,7 +113,8 @@ int pthread_rwlock_tryrdlock(FAR pthread_rwlock_t *rw_lock)
   return err;
 }
 
-int pthread_rwlock_timedrdlock(FAR pthread_rwlock_t *rw_lock,
+int pthread_rwlock_clockrdlock(FAR pthread_rwlock_t *rw_lock,
+                               clockid_t clockid,
                                FAR const struct timespec *ts)
 {
   int err = pthread_mutex_lock(&rw_lock->lock);
@@ -132,7 +131,8 @@ int pthread_rwlock_timedrdlock(FAR pthread_rwlock_t *rw_lock,
     {
       if (ts != NULL)
         {
-          err = pthread_cond_timedwait(&rw_lock->cv, &rw_lock->lock, ts);
+          err = pthread_cond_clockwait(&rw_lock->cv, &rw_lock->lock,
+                                       clockid, ts);
         }
       else
         {
@@ -144,12 +144,19 @@ int pthread_rwlock_timedrdlock(FAR pthread_rwlock_t *rw_lock,
           break;
         }
     }
+
 #ifdef CONFIG_PTHREAD_CLEANUP
   pthread_cleanup_pop(0);
 #endif
 
   pthread_mutex_unlock(&rw_lock->lock);
   return err;
+}
+
+int pthread_rwlock_timedrdlock(FAR pthread_rwlock_t *rw_lock,
+                               FAR const struct timespec *ts)
+{
+  return pthread_rwlock_clockrdlock(rw_lock, CLOCK_REALTIME, ts);
 }
 
 int pthread_rwlock_rdlock(FAR pthread_rwlock_t * rw_lock)

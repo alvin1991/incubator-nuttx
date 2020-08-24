@@ -2,7 +2,7 @@
  * net/tcp/tcp_timer.c
  * Poll for the availability of TCP TX data
  *
- *   Copyright (C) 2007-2010, 2015-2016, 2018 Gregory Nutt. All rights
+ *   Copyright (C) 2007-2010, 2015-2016, 2018, 2020 Gregory Nutt. All rights
  *     reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
@@ -182,7 +182,7 @@ void tcp_timer(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
 
               /* Notify upper layers about the timeout */
 
-              result = tcp_callback(dev, conn, TCP_TIMEDOUT);
+              tcp_callback(dev, conn, TCP_TIMEDOUT);
 
               ninfo("TCP state: TCP_CLOSED\n");
             }
@@ -261,7 +261,7 @@ void tcp_timer(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
                        * connection has timed out.
                        */
 
-                      result = tcp_callback(dev, listener, TCP_TIMEDOUT);
+                      tcp_callback(dev, listener, TCP_TIMEDOUT);
                     }
 
                   /* We also send a reset packet to the remote host. */
@@ -297,7 +297,7 @@ void tcp_timer(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
                    * timed out.
                    */
 
-                  result = tcp_callback(dev, conn, TCP_TIMEDOUT);
+                  tcp_callback(dev, conn, TCP_TIMEDOUT);
 
                   /* We also send a reset packet to the remote host. */
 
@@ -423,9 +423,9 @@ void tcp_timer(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
                           unsigned int tcpiplen;
 
                           /* No.. we need to send another probe.
-                           *
-                           * Get the size of the IP header and the TCP header.
+                           * Get the size of the IP and TCP header.
                            */
+
 #ifdef CONFIG_NET_IPv4
 #ifdef CONFIG_NET_IPv6
                           if (conn->domain == PF_INET)
@@ -464,8 +464,8 @@ void tcp_timer(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
 
                           tcp_setsequence(conn->sndseq, saveseq);
 
-                          /* Increment the number of un-ACKed bytes due to the
-                           * dummy byte that we just sent.
+                          /* Increment the number of un-ACKed bytes due to
+                           * the dummy byte that we just sent.
                            */
 
                           conn->tx_unacked++;
@@ -477,7 +477,7 @@ void tcp_timer(FAR struct net_driver_s *dev, FAR struct tcp_conn_s *conn,
 #endif
                           /* Update for the next probe */
 
-                          conn->keeptime = clock_systimer();
+                          conn->keeptime = clock_systime_ticks();
                           conn->keepretries++;
                         }
 

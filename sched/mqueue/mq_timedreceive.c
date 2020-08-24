@@ -1,36 +1,20 @@
 /****************************************************************************
  *  sched/mqueue/mq_timedreceive.c
  *
- *   Copyright (C) 2007-2009, 2011, 2013-2017 Gregory Nutt. All rights
- *     reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name NuttX nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
  *
  ****************************************************************************/
 
@@ -70,7 +54,6 @@
  *   becomes non-empty.
  *
  * Input Parameters:
- *   argc  - the number of arguments (should be 1)
  *   pid   - the task ID of the task to wakeup
  *
  * Returned Value:
@@ -80,7 +63,7 @@
  *
  ****************************************************************************/
 
-static void nxmq_rcvtimeout(int argc, wdparm_t pid)
+static void nxmq_rcvtimeout(wdparm_t pid)
 {
   FAR struct tcb_s *wtcb;
   irqstate_t flags;
@@ -95,7 +78,7 @@ static void nxmq_rcvtimeout(int argc, wdparm_t pid)
    * longer be active when this watchdog goes off.
    */
 
-  wtcb = sched_gettcb((pid_t)pid);
+  wtcb = nxsched_get_tcb(pid);
 
   /* It is also possible that an interrupt/context switch beat us to the
    * punch and already changed the task's state.
@@ -159,7 +142,7 @@ ssize_t nxmq_timedreceive(mqd_t mqdes, FAR char *msg, size_t msglen,
   irqstate_t flags;
   int ret;
 
-  DEBUGASSERT(up_interrupt_context() == false && rtcb->waitdog == NULL);
+  DEBUGASSERT(up_interrupt_context() == false);
 
   /* Verify the input parameters and, in case of an error, set
    * errno appropriately.
@@ -174,17 +157,6 @@ ssize_t nxmq_timedreceive(mqd_t mqdes, FAR char *msg, size_t msglen,
   if (!abstime || abstime->tv_nsec < 0 || abstime->tv_nsec >= 1000000000)
     {
       return -EINVAL;
-    }
-
-  /* Create a watchdog.  We will not actually need this watchdog
-   * unless the queue is not empty, but we will reserve it up front
-   * before we enter the following critical section.
-   */
-
-  rtcb->waitdog = wd_create();
-  if (!rtcb->waitdog)
-    {
-      return -ENOMEM;
     }
 
   /* Get the next message from the message queue.  We will disable
@@ -231,17 +203,12 @@ ssize_t nxmq_timedreceive(mqd_t mqdes, FAR char *msg, size_t msglen,
         {
           leave_critical_section(flags);
           sched_unlock();
-
-          wd_delete(rtcb->waitdog);
-          rtcb->waitdog = NULL;
-
           return -result;
         }
 
       /* Start the watchdog */
 
-      (void)wd_start(rtcb->waitdog, ticks, (wdentry_t)nxmq_rcvtimeout,
-                     1, getpid());
+      wd_start(&rtcb->waitdog, ticks, nxmq_rcvtimeout, getpid());
     }
 
   /* Get the message from the message queue */
@@ -252,7 +219,7 @@ ssize_t nxmq_timedreceive(mqd_t mqdes, FAR char *msg, size_t msglen,
    * it was never started)
    */
 
-  wd_cancel(rtcb->waitdog);
+  wd_cancel(&rtcb->waitdog);
 
   /* We can now restore interrupts */
 
@@ -273,8 +240,6 @@ ssize_t nxmq_timedreceive(mqd_t mqdes, FAR char *msg, size_t msglen,
     }
 
   sched_unlock();
-  wd_delete(rtcb->waitdog);
-  rtcb->waitdog = NULL;
   return ret;
 }
 
@@ -334,7 +299,7 @@ ssize_t mq_timedreceive(mqd_t mqdes, FAR char *msg, size_t msglen,
 
   /* mq_timedreceive() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
   /* Let nxmq_timedreceive do all of the work */
 

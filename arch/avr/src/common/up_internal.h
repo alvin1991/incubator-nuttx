@@ -89,14 +89,14 @@ typedef void (*up_vector_t)(void);
 extern void g_intstackbase;
 #endif
 
-/* These 'addresses' of these values are setup by the linker script.  They are
- * not actual uint32_t storage locations! They are only used meaningfully in the
- * following way:
+/* These 'addresses' of these values are setup by the linker script.  They
+ * are not actual uint32_t storage locations! They are only used meaningfully
+ * in the following way:
  *
  *  - The linker script defines, for example, the symbol_sdata.
  *  - The declareion extern uint32_t _sdata; makes C happy.  C will believe
- *    that the value _sdata is the address of a uint32_t variable _data (it is
- *    not!).
+ *    that the value _sdata is the address of a uint32_t variable _data
+ *    (it is not!).
  *  - We can recoved the linker value then by simply taking the address of
  *    of _data.  like:  uint32_t *pdata = &_sdata;
  */
@@ -116,14 +116,13 @@ extern uint32_t _ebss;            /* End+1 of .bss */
  ****************************************************************************/
 
 /****************************************************************************
- * Public Functions
+ * Public Function Prototypes
  ****************************************************************************/
 
 #ifndef __ASSEMBLY__
 
 /* Defined in files with the same name as the function */
 
-void up_irqinitialize(void);
 #ifdef CONFIG_ARCH_DMA
 void weak_function up_dma_initialize(void);
 #endif
@@ -151,26 +150,14 @@ void up_lowinit(void);
 
 /* Defined in chip/xxx_serial.c */
 
+#ifdef CONFIG_DEV_CONSOLE
 void up_earlyserialinit(void);
 void up_serialinit(void);
+#endif
 
 #ifdef CONFIG_RPMSG_UART
 void rpmsg_serialinit(void);
-#else
-#  define rpmsg_serialinit()
 #endif
-
-/* Defined in drivers/lowconsole.c */
-
-#ifdef CONFIG_DEV_LOWCONSOLE
-void lowconsole_init(void);
-#else
-# define lowconsole_init()
-#endif
-
-/* Defined in chip/xxx_timerisr.c */
-
-void avr_timer_initialize(void);
 
 /* Defined in chip/xxx_ethernet.c */
 
@@ -191,4 +178,4 @@ void up_usbuninitialize(void);
 #endif
 
 #endif /* __ASSEMBLY__ */
-#endif  /* __UP_INTERNAL_H */
+#endif /* __UP_INTERNAL_H */

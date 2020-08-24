@@ -38,8 +38,6 @@
  *
  ****************************************************************************/
 
-#ifdef __CYGWIN__
-
 /****************************************************************************
  * Included Files
  ****************************************************************************/
@@ -57,8 +55,7 @@
 
 #include <netinet/in.h>
 
-
-extern int netdriver_setmacaddr(unsigned char *macaddr);
+#include "up_internal.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -74,8 +71,6 @@ extern int netdriver_setmacaddr(unsigned char *macaddr);
  * Private Types
  ****************************************************************************/
 
-__attribute__ ((dllimport)) extern char **__argv[];
-
 struct pcap;
 
 struct pcap_if
@@ -90,7 +85,8 @@ struct pcap_if
     struct sockaddr *netmask;
     struct sockaddr *broadaddr;
     struct sockaddr *dstaddr;
-  } *addresses;
+  }
+  *addresses;
   DWORD flags;
 };
 
@@ -116,10 +112,6 @@ typedef int (*pcap_sendpacket_t)(struct pcap *, unsigned char *, int);
 HMODULE wpcap;
 static struct pcap *pcap;
 
-/****************************************************************************
- * Private Function Prototypes
- ****************************************************************************/
-
 static pcap_findalldevs_t pcap_findalldevs;
 static pcap_open_live_t   pcap_open_live;
 static pcap_next_ex_t     pcap_next_ex;
@@ -131,7 +123,7 @@ static pcap_sendpacket_t  pcap_sendpacket;
 
 static void error_exit(char *message)
 {
-  printf("error_exit: %s", message);
+  printf("error_exit: %s\r\n", message);
   exit(EXIT_FAILURE);
 }
 
@@ -147,29 +139,30 @@ static void init_pcap(struct in_addr addr)
 
   while (interfaces != NULL)
     {
-      printf("init_pcap: found interface: %s\n", interfaces->description);
+      printf("init_pcap: found interface: %s\r\n", interfaces->description);
 
       if (interfaces->addresses != NULL &&
           interfaces->addresses->addr != NULL &&
           interfaces->addresses->addr->sa_family == AF_INET)
         {
-
           struct in_addr interface_addr;
           interface_addr =
             ((struct sockaddr_in *)interfaces->addresses->addr)->sin_addr;
-          printf("init_pcap: with address: %s\n", inet_ntoa(interface_addr));
+          printf("init_pcap: with address: %s\r\n",
+                 inet_ntoa(interface_addr));
 
           if (interface_addr.s_addr == addr.s_addr)
             {
               break;
             }
         }
+
       interfaces = interfaces->next;
     }
 
   if (interfaces == NULL)
     {
-      error_exit("No interface found with IP address\n");
+      error_exit("No interface found with IP address");
     }
 
   pcap = pcap_open_live(interfaces->name, NETDEV_BUFSIZE, 0, -1, error);
@@ -189,60 +182,61 @@ static void set_ethaddr(struct in_addr addr)
                            GAA_FLAG_SKIP_DNS_SERVER,
                            NULL, NULL, &size) != ERROR_BUFFER_OVERFLOW)
     {
-      error_exit("error on access to adapter list size\n");
+      error_exit("error on access to adapter list size");
     }
+
   adapters = alloca(size);
+
   if (GetAdaptersAddresses(AF_INET, GAA_FLAG_SKIP_ANYCAST |
                            GAA_FLAG_SKIP_MULTICAST |
                            GAA_FLAG_SKIP_DNS_SERVER,
                            NULL, adapters, &size) != ERROR_SUCCESS)
     {
-      error_exit("error on access to adapter list\n");
+      error_exit("error on access to adapter list");
     }
 
   while (adapters != NULL)
     {
-
       char buffer[256];
       WideCharToMultiByte(CP_ACP, 0, adapters->Description, -1,
                           buffer, sizeof(buffer), NULL, NULL);
-      printf("set_ethaddr: found adapter: %s\n", buffer);
+      printf("set_ethaddr: found adapter: %s\r\n", buffer);
 
       if (adapters->FirstUnicastAddress != NULL &&
           adapters->FirstUnicastAddress->Address.lpSockaddr != NULL &&
           adapters->FirstUnicastAddress->Address.lpSockaddr->sa_family ==
           AF_INET)
         {
-
           struct in_addr adapter_addr;
           adapter_addr =
             ((struct sockaddr_in *)adapters->FirstUnicastAddress->Address.
              lpSockaddr)->sin_addr;
-          printf("set_ethaddr: with address: %s\n", inet_ntoa(adapter_addr));
+          printf("set_ethaddr: with address: %s\r\n",
+                 inet_ntoa(adapter_addr));
 
           if (adapter_addr.s_addr == addr.s_addr)
             {
               if (adapters->PhysicalAddressLength != 6)
                 {
-                  error_exit
-                    ("ip addr specified does not belong to an ethernet card\n");
+                  error_exit("ip addr does not belong to an ethernet card");
                 }
-              printf
-                ("set_ethaddr:  ethernetaddr: %02X-%02X-%02X-%02X-%02X-%02X\n",
+
+              printf("set_ethaddr: %02X-%02X-%02X-%02X-%02X-%02X\r\n",
                  adapters->PhysicalAddress[0], adapters->PhysicalAddress[1],
                  adapters->PhysicalAddress[2], adapters->PhysicalAddress[3],
                  adapters->PhysicalAddress[4], adapters->PhysicalAddress[5]);
 
-                 (void)netdriver_setmacaddr(adapters->PhysicalAddress);
+                 netdriver_setmacaddr(adapters->PhysicalAddress);
               break;
             }
         }
+
       adapters = adapters->Next;
     }
 
   if (adapters == NULL)
     {
-      error_exit("No adaptor found with IP address\n");
+      error_exit("No adaptor found with IP address");
     }
 }
 
@@ -256,7 +250,7 @@ void wpcap_init(void)
   FARPROC dlladdr;
 
   addr.s_addr = htonl(WCAP_IPADDR);
-  printf("wpcap_init: IP address: %s\n", inet_ntoa(addr));
+  printf("wpcap_init: IP address: %s\r\n", inet_ntoa(addr));
 
   wpcap = LoadLibrary("wpcap.dll");
   dlladdr = GetProcAddress(wpcap, "pcap_findalldevs");
@@ -274,7 +268,7 @@ void wpcap_init(void)
   if (pcap_findalldevs == NULL || pcap_open_live == NULL ||
       pcap_next_ex == NULL || pcap_sendpacket == NULL)
     {
-      error_exit("error on access to winpcap library\n");
+      error_exit("error on access to winpcap library");
     }
 
   init_pcap(addr);
@@ -289,7 +283,7 @@ unsigned int wpcap_read(unsigned char *buf, unsigned int buflen)
   switch (pcap_next_ex(pcap, &packet_header, &packet))
     {
     case -1:
-      error_exit("error on read\n");
+      error_exit("error on read");
     case 0:
       return 0;
     }
@@ -307,8 +301,6 @@ void wpcap_send(unsigned char *buf, unsigned int buflen)
 {
   if (pcap_sendpacket(pcap, buf, buflen) == -1)
     {
-      error_exit("error on send\n");
+      error_exit("error on send");
     }
 }
-
-#endif /* __CYGWIN__ */

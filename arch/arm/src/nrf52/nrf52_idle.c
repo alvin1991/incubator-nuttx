@@ -46,7 +46,7 @@
 
 #include <nuttx/irq.h>
 
-#include "up_internal.h"
+#include "arm_internal.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -107,7 +107,7 @@ static void up_idlepm(void)
         {
           /* The new state change failed, revert to the preceding state */
 
-          (void)pm_changestate(PM_IDLE_DOMAIN, oldstate);
+          pm_changestate(PM_IDLE_DOMAIN, oldstate);
         }
       else
         {
@@ -131,7 +131,7 @@ static void up_idlepm(void)
           break;
 
         case PM_SLEEP:
-          (void)nrf52_pmsleep();
+          nrf52_pmsleep();
           break;
 
         default:
@@ -176,10 +176,16 @@ void up_idle(void)
 
   up_idlepm();
 
-  /* Sleep until an interrupt occurs to save power */
+  /* Sleep until an interrupt occurs to save power
+   *
+   * REVISIT: The SysTick's clock will only tick when the CPU is
+   * running (not in WFE/WFI) or when the system is in debug interface mode.
+   */
 
+#if 0
   BEGIN_IDLE();
   asm("WFI");
   END_IDLE();
+#endif
 #endif
 }

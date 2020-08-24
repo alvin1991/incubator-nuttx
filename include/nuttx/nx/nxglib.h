@@ -65,6 +65,7 @@
 #endif
 
 /* Driver Selection *********************************************************/
+
 /* NX_DRIVERTYPE selects either the framebuffer or LCD driver;
  * NX_PLANINFO_TYPE hides the difference in the framebuffer and LCD driver
  * plane types. defines are used instead of a typedefs to avoid type
@@ -80,6 +81,7 @@
 #endif
 
 /* NXGL Macros **************************************************************/
+
 /* Mnemonics for indices */
 
 #define NX_TOP_NDX           (0)
@@ -145,6 +147,28 @@ void nxgl_yuv2rgb(uint8_t y, uint8_t u, uint8_t v,
                   uint8_t *r, uint8_t *g, uint8_t *b);
 
 /****************************************************************************
+ * Name: nxgl_area2rect
+ *
+ * Description:
+ *   Convert nxgl_rect_s to fb_area_s.
+ *
+ ****************************************************************************/
+
+void nxgl_area2rect(FAR struct nxgl_rect_s *dest,
+                    FAR const struct fb_area_s *src);
+
+/****************************************************************************
+ * Name: nxgl_rect2area
+ *
+ * Description:
+ *   Convert nxgl_rect_s to fb_area_s.
+ *
+ ****************************************************************************/
+
+void nxgl_rect2area(FAR struct fb_area_s *dest,
+                    FAR const struct nxgl_rect_s *src);
+
+/****************************************************************************
  * Name: nxgl_rectcopy
  *
  * Description:
@@ -184,7 +208,8 @@ void nxgl_vectoradd(FAR struct nxgl_point_s *dest,
  * Name: nxgl_vectsubtract
  *
  * Description:
- *   Add subtract vector v2 from vector v1 and return the result in vector dest
+ *   Add subtract vector v2 from vector v1 and return the result in vector
+ *   dest
  *
  ****************************************************************************/
 
@@ -196,7 +221,7 @@ void nxgl_vectsubtract(FAR struct nxgl_point_s *dest,
  * Name: nxgl_rectintersect
  *
  * Description:
- *   Return the rectangle representing the intersection of the two rectangles.
+ *   Return the rectangle representing the intersection of the two rectangles
  *
  ****************************************************************************/
 
@@ -219,7 +244,7 @@ bool nxgl_intersecting(FAR const struct nxgl_rect_s *rect1,
  * Name: nxgl_rectadd
  *
  * Description:
- *   Return the rectangle that contains exactly two other rectanges.
+ *   Return the rectangle that contains exactly two other rectangles.
  *
  ****************************************************************************/
 
@@ -483,7 +508,7 @@ void nxgl_circletraps(FAR const struct nxgl_point_s *center,
  *   implementation of anti-aliasing without transparency.
  *
  * Input Parameters:
- *   color1 - The semi-transparent, forground color
+ *   color1 - The semi-transparent, foreground color
  *   color2 - The opaque, background color
  *   frac1  - The fractional amount of color1 to blend into color2
  *

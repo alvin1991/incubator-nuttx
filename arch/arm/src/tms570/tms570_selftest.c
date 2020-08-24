@@ -50,7 +50,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "up_arch.h"
+#include "arm_arch.h"
 
 #include "hardware/tms570_sys.h"
 #include "hardware/tms570_pbist.h"
@@ -154,7 +154,7 @@ static void pbist_memtest_start(uint32_t rinfol, uint32_t algomask)
  *   None
  *
  * Returned Value:
- *   true if the PBIST test is compelte
+ *   true if the PBIST test is complete
  *
  ****************************************************************************/
 

@@ -50,6 +50,7 @@
 
 #include "devif/devif.h"
 #include "arp/arp.h"
+#include "can/can.h"
 #include "tcp/tcp.h"
 #include "udp/udp.h"
 #include "pkt/pkt.h"
@@ -75,14 +76,6 @@ enum devif_packet_type
   DEVIF_UDP,
   DEVIF_ICMP6
 };
-
-/****************************************************************************
- * Public Data
- ****************************************************************************/
-
-/* Time of last poll */
-
-clock_t g_polltime;
 
 /****************************************************************************
  * Private Functions
@@ -230,6 +223,44 @@ static int devif_poll_pkt_connections(FAR struct net_driver_s *dev,
       /* Perform any necessary conversions on outgoing packets */
 
       devif_packet_conversion(dev, DEVIF_PKT);
+
+      /* Call back into the driver */
+
+      bstop = callback(dev);
+    }
+
+  return bstop;
+}
+#endif /* CONFIG_NET_PKT */
+
+/****************************************************************************
+ * Name: devif_poll_pkt_connections
+ *
+ * Description:
+ *   Poll all packet connections for available packets to send.
+ *
+ * Assumptions:
+ *   This function is called from the MAC device driver with the network
+ *   locked.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NET_CAN
+static int devif_poll_can_connections(FAR struct net_driver_s *dev,
+                                      devif_poll_callback_t callback)
+{
+  FAR struct can_conn_s *can_conn = NULL;
+  int bstop = 0;
+
+  /* Traverse all of the allocated packet connections and
+   * perform the poll action
+   */
+
+  while (!bstop && (can_conn = can_nextconn(can_conn)))
+    {
+      /* Perform the packet TX poll */
+
+      can_poll(dev, can_conn);
 
       /* Call back into the driver */
 
@@ -654,6 +685,15 @@ int devif_poll(FAR struct net_driver_s *dev, devif_poll_callback_t callback)
 
   if (!bstop)
 #endif
+#ifdef CONFIG_NET_CAN
+    {
+      /* Check for pending packet socket transfer */
+
+      bstop = devif_poll_can_connections(dev, callback);
+    }
+
+  if (!bstop)
+#endif
 #ifdef CONFIG_NET_BLUETOOTH
     {
       /* Check for pending PF_BLUETOOTH socket transfer */
@@ -770,55 +810,31 @@ int devif_poll(FAR struct net_driver_s *dev, devif_poll_callback_t callback)
  *
  ****************************************************************************/
 
-int devif_timer(FAR struct net_driver_s *dev, devif_poll_callback_t callback)
+int devif_timer(FAR struct net_driver_s *dev, int delay,
+                devif_poll_callback_t callback)
 {
-  clock_t now;
-  clock_t elapsed;
+#if defined(CONFIG_NET_IPv4_REASSEMBLY) || defined(NET_TCP_HAVE_STACK)
+  int hsec = TICK2HSEC(delay);
+#endif
   int bstop = false;
 
-  /* Get the elapsed time since the last poll in units of half seconds
-   * (truncating).
-   */
-
-  now     = clock_systimer();
-  elapsed = now - g_polltime;
-
-  /* Process time-related events only when more than one half second elapses. */
-
-  if (elapsed >= TICK_PER_HSEC)
-    {
-      /* Calculate the elpased time in units of half seconds (truncating to
-       * number of whole half seconds).
-       */
-
-      int hsec = (int)(elapsed / TICK_PER_HSEC);
-
-      /* Update the current poll time (truncating to the last half second
-       * boundary to avoid error build-up).
-       */
-
-      g_polltime += (TICK_PER_HSEC * (clock_t)hsec);
-
-      /* Perform periodic activitives that depend on hsec > 0 */
-
 #ifdef CONFIG_NET_IPv4_REASSEMBLY
-      /* Increment the timer used by the IP reassembly logic */
+  /* Increment the timer used by the IP reassembly logic */
 
-      if (g_reassembly_timer != 0 &&
-          g_reassembly_timer < CONFIG_NET_IPv4_REASS_MAXAGE)
-        {
-          g_reassembly_timer += hsec;
-        }
+  if (g_reassembly_timer != 0 &&
+      g_reassembly_timer < CONFIG_NET_IPv4_REASS_MAXAGE)
+    {
+      g_reassembly_timer += hsec;
+    }
 #endif
 
 #ifdef NET_TCP_HAVE_STACK
-      /* Traverse all of the active TCP connections and perform the
-       * timer action.
-       */
+  /* Traverse all of the active TCP connections and perform the
+   * timer action.
+   */
 
-      bstop = devif_poll_tcp_timer(dev, callback, hsec);
+  bstop = devif_poll_tcp_timer(dev, callback, hsec);
 #endif
-    }
 
   /* If possible, continue with a normal poll checking for pending
    * network driver actions.

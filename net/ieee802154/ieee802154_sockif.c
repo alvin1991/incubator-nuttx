@@ -107,6 +107,10 @@ const struct sock_intf_s g_ieee802154_sockif =
   NULL,                   /* si_sendfile */
 #endif
   ieee802154_recvfrom,    /* si_recvfrom */
+#ifdef CONFIG_NET_CMSG
+  NULL,                   /* si_recvmsg */
+  NULL,                   /* si_sendmsg */
+#endif
   ieee802154_close        /* si_close */
 };
 
@@ -214,7 +218,7 @@ static sockcaps_t ieee802154_sockcaps(FAR struct socket *psock)
  * Name: ieee802154_addref
  *
  * Description:
- *   Increment the refernce count on the underlying connection structure.
+ *   Increment the reference count on the underlying connection structure.
  *
  * Input Parameters:
  *   psock - Socket structure of the socket whose reference count will be
@@ -241,10 +245,10 @@ static void ieee802154_addref(FAR struct socket *psock)
  * Name: ieee802154_connect
  *
  * Description:
- *   ieee802154_connect() connects the local socket referred to by the structure
- *   'psock' to the address specified by 'addr'. The addrlen argument
- *   specifies the size of 'addr'.  The format of the address in 'addr' is
- *   determined by the address space of the socket 'psock'.
+ *   ieee802154_connect() connects the local socket referred to by the
+ *   structure 'psock' to the address specified by 'addr'. The addrlen
+ *   argument specifies the size of 'addr'.  The format of the address in
+ *   'addr' is determined by the address space of the socket 'psock'.
  *
  *   If the socket 'psock' is of type SOCK_DGRAM then 'addr' is the address
  *   to which datagrams are sent by default, and the only address from which
@@ -264,7 +268,7 @@ static void ieee802154_addref(FAR struct socket *psock)
  *   addrlen   Length of actual 'addr'
  *
  * Returned Value:
- *   0 on success; a negated errno value on failue.  See connect() for the
+ *   0 on success; a negated errno value on failure.  See connect() for the
  *   list of appropriate errno values to be returned.
  *
  ****************************************************************************/
@@ -275,7 +279,7 @@ static int ieee802154_connect(FAR struct socket *psock,
 {
   FAR struct ieee802154_conn_s *conn;
   FAR struct sockaddr_ieee802154_s *ieeeaddr;
-  int ret;
+  int ret = OK;
 
   DEBUGASSERT(psock != NULL || addr != NULL);
   conn = (FAR struct ieee802154_conn_s *)psock->s_conn;
@@ -290,11 +294,6 @@ static int ieee802154_connect(FAR struct socket *psock,
       ieeeaddr = (FAR struct sockaddr_ieee802154_s *)addr;
       memcpy(&conn->raddr, &ieeeaddr->sa_addr,
              sizeof(struct ieee802154_saddr_s));
-
-      /* Mark the socket as connected. */
-
-      psock->s_flags |= _SF_CONNECTED;
-      ret = OK;
     }
   else
     {
@@ -312,8 +311,8 @@ static int ieee802154_connect(FAR struct socket *psock,
  * Name: ieee802154_accept
  *
  * Description:
- *   The ieee802154_accept function is used with connection-based socket types
- *   (SOCK_STREAM, SOCK_SEQPACKET and SOCK_RDM). It extracts the first
+ *   The ieee802154_accept function is used with connection-based socket
+ *   types (SOCK_STREAM, SOCK_SEQPACKET and SOCK_RDM). It extracts the first
  *   connection request on the queue of pending connections, creates a new
  *   connected socket with mostly the same properties as 'sockfd', and
  *   allocates a new socket descriptor for the socket, which is returned. The
@@ -339,12 +338,13 @@ static int ieee802154_connect(FAR struct socket *psock,
  * Input Parameters:
  *   psock    Reference to the listening socket structure
  *   addr     Receives the address of the connecting client
- *   addrlen  Input: allocated size of 'addr', Return: returned size of 'addr'
+ *   addrlen  Input: allocated size of 'addr',
+ *            Return: returned size of 'addr'
  *   newsock  Location to return the accepted socket information.
  *
  * Returned Value:
  *   Returns 0 (OK) on success.  On failure, it returns a negated errno
- *   value.  See accept() for a desrciption of the approriate error value.
+ *   value.  See accept() for a desrciption of the appropriate error value.
  *
  * Assumptions:
  *   The network is locked.
@@ -381,7 +381,8 @@ static int ieee802154_accept(FAR struct socket *psock,
  ****************************************************************************/
 
 static int ieee802154_bind(FAR struct socket *psock,
-                           FAR const struct sockaddr *addr, socklen_t addrlen)
+                           FAR const struct sockaddr *addr,
+                           socklen_t addrlen)
 {
   FAR const struct sockaddr_ieee802154_s *iaddr;
   FAR struct radio_driver_s *radio;
@@ -419,7 +420,7 @@ static int ieee802154_bind(FAR struct socket *psock,
 
   /* Very that some address was provided.
    *
-   * REVISIT: Currently and explict address must be assigned.  Should we
+   * REVISIT: Currently and explicit address must be assigned.  Should we
    * support some moral equivalent to INADDR_ANY?
    */
 
@@ -444,9 +445,6 @@ static int ieee802154_bind(FAR struct socket *psock,
 
   memcpy(&conn->laddr, &iaddr->sa_addr, sizeof(struct ieee802154_saddr_s));
 
-  /* Mark the socket bound */
-
-  psock->s_flags |= _SF_BOUND;
   return OK;
 }
 
@@ -454,10 +452,10 @@ static int ieee802154_bind(FAR struct socket *psock,
  * Name: ieee802154_getsockname
  *
  * Description:
- *   The ieee802154_getsockname() function retrieves the locally-bound name of the
- *   specified packet socket, stores this address in the sockaddr structure
- *   pointed to by the 'addr' argument, and stores the length of this
- *   address in the object pointed to by the 'addrlen' argument.
+ *   The ieee802154_getsockname() function retrieves the locally-bound name
+ *   of the specified packet socket, stores this address in the sockaddr
+ *   structure pointed to by the 'addr' argument, and stores the length of
+ *   this address in the object pointed to by the 'addrlen' argument.
  *
  *   If the actual length of the address is greater than the length of the
  *   supplied sockaddr structure, the stored address will be truncated.
@@ -516,10 +514,10 @@ static int ieee802154_getsockname(FAR struct socket *psock,
  * Name: ieee802154_getpeername
  *
  * Description:
- *   The ieee802154_getpeername() function retrieves the remote-connectd name of the
- *   specified packet socket, stores this address in the sockaddr structure
- *   pointed to by the 'addr' argument, and stores the length of this
- *   address in the object pointed to by the 'addrlen' argument.
+ *   The ieee802154_getpeername() function retrieves the remote-connectd name
+ *   of the specified packet socket, stores this address in the sockaddr
+ *   structure pointed to by the 'addr' argument, and stores the length of
+ *   this address in the object pointed to by the 'addrlen' argument.
  *
  *   If the actual length of the address is greater than the length of the
  *   supplied sockaddr structure, the stored address will be truncated.
@@ -684,7 +682,8 @@ static ssize_t ieee802154_send(FAR struct socket *psock, FAR const void *buf,
 
           ret = psock_ieee802154_sendto(psock, buf, len, flags,
                                         (FAR const struct sockaddr *)&to,
-                                        sizeof(struct sockaddr_ieee802154_s));
+                                        sizeof(
+                                          struct sockaddr_ieee802154_s));
         }
     }
   else
@@ -721,9 +720,11 @@ static ssize_t ieee802154_send(FAR struct socket *psock, FAR const void *buf,
  *
  ****************************************************************************/
 
-static ssize_t ieee802154_sendto(FAR struct socket *psock, FAR const void *buf,
+static ssize_t ieee802154_sendto(FAR struct socket *psock,
+                                 FAR const void *buf,
                                  size_t len, int flags,
-                                 FAR const struct sockaddr *to, socklen_t tolen)
+                                 FAR const struct sockaddr *to,
+                                 socklen_t tolen)
 {
   ssize_t ret;
 
@@ -781,7 +782,7 @@ static int ieee802154_close(FAR struct socket *psock)
             {
               /* Yes... free the connection structure */
 
-              conn->crefs = 0;          /* No more references on the connection */
+              conn->crefs = 0;                      /* No more references on the connection */
               ieee802154_conn_free(psock->s_conn);  /* Free network resources */
             }
           else

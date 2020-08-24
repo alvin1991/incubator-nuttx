@@ -32,6 +32,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 /* The Olimex board has four buttons, BUT1-4.  Each is grounded and so should
  * have a weak pull-up so that it will be sensed as "1" when open and "0"
  * when closed.
@@ -102,7 +103,7 @@ static const gpio_pinset_t g_button_boards[NUM_BUTTONS] =
  *
  ****************************************************************************/
 
-void board_button_initialize(void)
+uint32_t board_button_initialize(void)
 {
   int i;
 
@@ -110,8 +111,10 @@ void board_button_initialize(void)
 
   for (i = 0; i < NUM_BUTTONS; i++)
     {
-      (void)efm32_configgpio(g_button_boards[i]);
+      efm32_configgpio(g_button_boards[i]);
     }
+
+  return NUM_BUTTONS;
 }
 
 /****************************************************************************
@@ -186,7 +189,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
 
           /* Attach and enable the interrupt */
 
-          (void)irq_attach(g_button_irqs[id], irqhandler, arg);
+          irq_attach(g_button_irqs[id], irqhandler, arg);
           efm32_gpioirqenable(g_button_irqs[id]);
         }
       else
@@ -194,7 +197,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
           /* Disable and detach the interrupt */
 
           efm32_gpioirqdisable(g_button_irqs[id]);
-          (void)irq_detach(g_button_irqs[id]);
+          irq_detach(g_button_irqs[id]);
         }
 
       leave_critical_section(flags);

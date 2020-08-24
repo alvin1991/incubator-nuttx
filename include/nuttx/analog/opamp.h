@@ -46,8 +46,9 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
+
 #include <nuttx/fs/fs.h>
+#include <nuttx/semaphore.h>
 
 /************************************************************************************
  * Public Types
@@ -65,7 +66,7 @@ struct opamp_ops_s
   CODE int (*ao_setup)(FAR struct opamp_dev_s *dev);
 
   /* Disable the OPAMP.  This method is called when the OPAMP device is closed.
-   * This method reverses the operation the setup method.
+   * This method reverses the operation of the setup method.
    * Works only if OPAMP device is not locked.
    */
 
@@ -92,7 +93,7 @@ struct opamp_dev_s
 };
 
 /************************************************************************************
- * Public Functions
+ * Public Function Prototypes
  ************************************************************************************/
 
 #if defined(__cplusplus)

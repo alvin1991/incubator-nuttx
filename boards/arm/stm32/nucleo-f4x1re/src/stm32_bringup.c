@@ -56,6 +56,10 @@
 
 #include <nuttx/board.h>
 
+#ifdef CONFIG_SENSORS_QENCODER
+#include "board_qencoder.h"
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -94,7 +98,7 @@ int stm32_bringup(void)
 
 #ifdef CONFIG_CAN_MCP2515
 #ifdef CONFIG_STM32_SPI1
-  (void)stm32_configgpio(GPIO_MCP2515_CS);    /* MEMS chip select */
+  stm32_configgpio(GPIO_MCP2515_CS);    /* MEMS chip select */
 #endif
 
   /* Configure and initialize the MCP2515 CAN device */
@@ -151,7 +155,7 @@ int stm32_bringup(void)
 #ifdef CONFIG_SENSORS_QENCODER
   /* Initialize and register the qencoder driver */
 
-  ret = stm32_qencoder_initialize("/dev/qe0", CONFIG_NUCLEO_F401RE_QETIMER);
+  ret = board_qencoder_initialize(0, CONFIG_NUCLEO_F401RE_QETIMER);
   if (ret != OK)
     {
       syslog(LOG_ERR,

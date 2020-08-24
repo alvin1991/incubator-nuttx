@@ -40,7 +40,6 @@
 #include <nuttx/config.h>
 
 #include <sys/types.h>
-#include <sys/statfs.h>
 #include <sys/stat.h>
 
 #include <stdint.h>
@@ -108,10 +107,10 @@ enum route_node_e
 
 struct route_file_s
 {
-  struct procfs_file_s base;           /* Base open file structure */
+  struct procfs_file_s base;          /* Base open file structure */
   FAR const char *name;               /* Terminal node segment name */
   uint8_t node;                       /* Type of node (see enum route_node_e) */
-  char line[STATUS_LINELEN];           /* Pre-allocated buffer for formatted lines */
+  char line[STATUS_LINELEN];          /* Pre-allocated buffer for formatted lines */
 };
 
 /* This structure describes one open "directory" */
@@ -288,7 +287,8 @@ static void route_sprintf(FAR struct route_info_s *info,
  ****************************************************************************/
 
 #ifdef CONFIG_NET_IPv4
-static int route_ipv4_entry(FAR struct net_route_ipv4_s *route, FAR void *arg)
+static int route_ipv4_entry(FAR struct net_route_ipv4_s *route,
+                            FAR void *arg)
 {
   FAR struct route_info_s *info = (FAR struct route_info_s *)arg;
   char target[INET_ADDRSTRLEN];
@@ -318,9 +318,9 @@ static int route_ipv4_entry(FAR struct net_route_ipv4_s *route, FAR void *arg)
 
   /* Generate routing table entry on one line */
 
-  (void)inet_ntop(AF_INET, &route->target,  target,  INET_ADDRSTRLEN);
-  (void)inet_ntop(AF_INET, &route->netmask, netmask, INET_ADDRSTRLEN);
-  (void)inet_ntop(AF_INET, &route->router,  router,  INET_ADDRSTRLEN);
+  inet_ntop(AF_INET, &route->target,  target,  INET_ADDRSTRLEN);
+  inet_ntop(AF_INET, &route->netmask, netmask, INET_ADDRSTRLEN);
+  inet_ntop(AF_INET, &route->router,  router,  INET_ADDRSTRLEN);
 
   info->index++;
   route_sprintf(info, "%4u. %-16s%-16s%-16s\n",
@@ -345,7 +345,8 @@ static int route_ipv4_entry(FAR struct net_route_ipv4_s *route, FAR void *arg)
  ****************************************************************************/
 
 #ifdef CONFIG_NET_IPv6
-static int route_ipv6_entry(FAR struct net_route_ipv6_s *route, FAR void *arg)
+static int route_ipv6_entry(FAR struct net_route_ipv6_s *route,
+                            FAR void *arg)
 {
   FAR struct route_info_s *info = (FAR struct route_info_s *)arg;
   char addr[INET6_ADDRSTRLEN];
@@ -355,7 +356,7 @@ static int route_ipv6_entry(FAR struct net_route_ipv6_s *route, FAR void *arg)
   /* Generate routing table entry on three lines */
 
   info->index++;
-  (void)inet_ntop(AF_INET6, route->target,  addr, INET6_ADDRSTRLEN);
+  inet_ntop(AF_INET6, route->target,  addr, INET6_ADDRSTRLEN);
 
   route_sprintf(info, "%4u. TARGET  %s\n", info->index, addr);
   if (info->totalsize >= info->buflen)
@@ -363,14 +364,14 @@ static int route_ipv6_entry(FAR struct net_route_ipv6_s *route, FAR void *arg)
       return 1;
     }
 
-  (void)inet_ntop(AF_INET6, route->netmask, addr, INET6_ADDRSTRLEN);
+  inet_ntop(AF_INET6, route->netmask, addr, INET6_ADDRSTRLEN);
   route_sprintf(info, "      NETMASK %s\n", addr);
   if (info->totalsize >= info->buflen)
     {
       return 1;
     }
 
-  (void)inet_ntop(AF_INET6, route->router,  addr, INET6_ADDRSTRLEN);
+  inet_ntop(AF_INET6, route->router,  addr, INET6_ADDRSTRLEN);
   route_sprintf(info, "      ROUTER  %s\n", addr);
   return (info->totalsize >= info->buflen) ? 1 : 0;
 }
@@ -391,7 +392,8 @@ static int route_ipv6_entry(FAR struct net_route_ipv6_s *route, FAR void *arg)
 
 #ifdef CONFIG_NET_IPv4
 static ssize_t route_ipv4_table(FAR struct route_file_s *procfile,
-                                FAR char *buffer, size_t buflen, off_t offset)
+                                FAR char *buffer, size_t buflen,
+                                off_t offset)
 {
   struct route_info_s info;
 
@@ -405,7 +407,7 @@ static ssize_t route_ipv4_table(FAR struct route_file_s *procfile,
 
   /* Generate each entry in the routing table */
 
-  (void)net_foreachroute_ipv4(route_ipv4_entry, &info);
+  net_foreachroute_ipv4(route_ipv4_entry, &info);
   return info.totalsize;
 }
 #endif
@@ -416,7 +418,8 @@ static ssize_t route_ipv4_table(FAR struct route_file_s *procfile,
 
 #ifdef CONFIG_NET_IPv6
 static ssize_t route_ipv6_table(FAR struct route_file_s *procfile,
-                                FAR char *buffer, size_t buflen, off_t offset)
+                                FAR char *buffer, size_t buflen,
+                                off_t offset)
 {
   struct route_info_s info;
 
@@ -430,7 +433,7 @@ static ssize_t route_ipv6_table(FAR struct route_file_s *procfile,
 
   /* Generate each entry in the routing table */
 
-  (void)net_foreachroute_ipv6(route_ipv6_entry, &info);
+  net_foreachroute_ipv6(route_ipv6_entry, &info);
   return info.totalsize;
 }
 #endif

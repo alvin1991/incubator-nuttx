@@ -60,6 +60,7 @@
 /****************************************************************************
  * Private Data
  ****************************************************************************/
+
 /* Pin configuration for each LPC4357-EVB button.  This array is indexed by
  * the BUTTON_* definitions in board.h
  */
@@ -99,7 +100,7 @@ static uint8_t g_buttonirq[NUM_BUTTONS] =
  *
  ****************************************************************************/
 
-void board_button_initialize(void)
+uint32_t board_button_initialize(void)
 {
 #if 0 /* Not yet implemented */
   int i;
@@ -110,6 +111,8 @@ void board_button_initialize(void)
     {
       lpc43_configgpio(g_buttoncfg[i]);
     }
+#else
+  return 0;
 #endif
 }
 
@@ -162,8 +165,8 @@ uint32_t board_buttons(void)
  *
  * Description:
  *   board_button_initialize() must be called to initialize button resources.
- *   After that, board_button_irq() may be called to register button interrupt
- *   handlers.
+ *   After that, board_button_irq() may be called to register button
+ *   interrupt handlers.
  *
  *   board_button_irq() may be called to register an interrupt handler that
  *   will be called when a button is depressed or released.
@@ -205,7 +208,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
         {
           /* Attach then enable the new interrupt handler */
 
-          (void)irq_attach(irq, irqhandler, arg);
+          irq_attach(irq, irqhandler, arg);
           up_enable_irq(irq);
         }
       else
@@ -213,7 +216,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
           /* Disable then detach the old interrupt handler */
 
           up_disable_irq(irq);
-          (void)irq_detach(irq);
+          irq_detach(irq);
         }
 
       leave_critical_section(flags);

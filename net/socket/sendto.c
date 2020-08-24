@@ -1,7 +1,8 @@
 /****************************************************************************
  * net/socket/sendto.c
  *
- *   Copyright (C) 2007-2009, 2011-2015, 2017 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2011-2015, 2017 Gregory Nutt. All rights
+ *     reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -126,12 +127,10 @@ ssize_t psock_sendto(FAR struct socket *psock, FAR const void *buf,
 
   /* Verify that non-NULL pointers were passed */
 
-#ifdef CONFIG_DEBUG_FEATURES
   if (buf == NULL)
     {
       return -EINVAL;
     }
-#endif
 
   /* If to is NULL or tolen is zero, then this function is same as send (for
    * connected socket types)
@@ -139,13 +138,7 @@ ssize_t psock_sendto(FAR struct socket *psock, FAR const void *buf,
 
   if (to == NULL || tolen <= 0)
     {
-#if defined(CONFIG_NET_TCP) || defined(CONFIG_NET_LOCAL_STREAM) || \
-    defined(CONFIG_NET_USRSOCK)
       return psock_send(psock, buf, len, flags);
-#else
-      nerr("ERROR: No 'to' address\n");
-      return -EINVAL;
-#endif
     }
 
   /* Verify that the psock corresponds to valid, allocated socket */
@@ -190,8 +183,8 @@ ssize_t psock_sendto(FAR struct socket *psock, FAR const void *buf,
  *   tolen    The length of the address structure
  *
  * Returned Value:
- *   On success, returns the number of characters sent.  On any failure, a
- *   negated errno value is returned.  One of:
+ *   On success, returns the number of characters sent.  On error,
+ *   -1 is returned, and errno is set appropriately:
  *
  *   EAGAIN or EWOULDBLOCK
  *     The socket is marked non-blocking and the requested operation
@@ -243,7 +236,7 @@ ssize_t sendto(int sockfd, FAR const void *buf, size_t len, int flags,
 
   /* sendto() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
   /* Get the underlying socket structure */
 
@@ -254,7 +247,7 @@ ssize_t sendto(int sockfd, FAR const void *buf, size_t len, int flags,
   ret = psock_sendto(psock, buf, len, flags, to, tolen);
   if (ret < 0)
     {
-      set_errno((int)-ret);
+      _SO_SETERRNO(psock, -ret);
       ret = ERROR;
     }
 

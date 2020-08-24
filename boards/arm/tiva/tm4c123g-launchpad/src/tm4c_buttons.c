@@ -72,13 +72,13 @@
  *
  * Description:
  *   board_button_initialize() must be called to initialize button resources.
- *   After that, board_buttons() may be called to collect the current state of
- *   all buttons or board_button_irq() may be called to register button
+ *   After that, board_buttons() may be called to collect the current state
+ *   of all buttons or board_button_irq() may be called to register button
  *   interrupt handlers.
  *
  ****************************************************************************/
 
-void board_button_initialize(void)
+uint32_t board_button_initialize(void)
 {
   /* Unlock GPIOF from NMI to use it w/ buttons see Register 19 of GPIOs
    * and see table 10-10 in datasheet for pins with special considerations.
@@ -103,8 +103,9 @@ void board_button_initialize(void)
   /* Configure GPIO interrupts */
 
 #ifdef CONFIG_ARCH_IRQBUTTONS
-  (void)tiva_gpioirqinitialize();
+  tiva_gpioirqinitialize();
 #endif
+  return NUM_BUTTONS;
 }
 
 /****************************************************************************

@@ -56,24 +56,6 @@
 #ifdef CONFIG_SMP
 
 /****************************************************************************
- * Private Types
- ****************************************************************************/
-
-struct nx_tcballoc_s
-{
-  struct task_tcb_s tcb;  /* IDLE task TCB */
-  FAR char *idleargv[2];  /* Argument list */
-};
-
-/****************************************************************************
- * Private Data
- ****************************************************************************/
-
-#if CONFIG_TASK_NAME_SIZE < 1
-static const char g_idlename[] = "CPUn Idle"
-#endif
-
-/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -105,64 +87,12 @@ void nx_idle_trampoline(void)
   sched_note_start(tcb);
 #endif
 
-  /* Then transfer control to the IDLE task */
-
-  (void)nx_idle_task(0, NULL);
-
-  /* The IDLE task should never return */
-
-  DEBUGPANIC();
-}
-
-/****************************************************************************
- * Name: nx_idle_task
- *
- * Description:
- *   This is the common IDLE task for CPUs 1 through (CONFIG_SMP_NCPUS-1).
- *   It is equivalent to the CPU 0 IDLE logic in nx_start.c
- *
- * Input Parameters:
- *   Standard task arguments.
- *
- * Returned Value:
- *   This function does not return.
- *
- ****************************************************************************/
-
-int nx_idle_task(int argc, FAR char *argv[])
-{
   /* Enter the IDLE loop */
 
   sinfo("CPU%d: Beginning Idle Loop\n", this_cpu());
 
   for (; ; )
     {
-      /* Perform garbage collection (if it is not being done by the worker
-       * thread).  This cleans-up memory de-allocations that were queued
-       * because they could not be freed in that execution context (for
-       * example, if the memory was freed from an interrupt handler).
-       */
-
-#ifndef CONFIG_SCHED_WORKQUEUE
-      /* We must have exclusive access to the memory manager to do this
-       * BUT the idle task cannot wait on a semaphore.  So we only do
-       * the cleanup now if we can get the semaphore -- this should be
-       * possible because if the IDLE thread is running, no other task is!
-       *
-       * WARNING: This logic could have undesirable side-effects if priority
-       * inheritance is enabled.  Imagine the possible issues if the
-       * priority of the IDLE thread were to get boosted!  Moral: If you
-       * use priority inheritance, then you should also enable the work
-       * queue so that is done in a safer context.
-       */
-
-      if (sched_have_garbage() && kmm_trysemaphore() == 0)
-        {
-          sched_garbage_collection();
-          kmm_givesemaphore();
-        }
-#endif
-
       /* Perform any processor-specific idle state operations */
 
       up_idle();
@@ -212,21 +142,9 @@ int nx_smp_start(void)
           return ret;
         }
 
-      /* Reinitialize the processor-specific portion of the TCB.  This is
-       * the second time this has been called for this CPU, but the stack
-       * was not yet initialized on the first call so we need to do it
-       * again.
-       */
+      /* Initialize the processor-specific portion of the TCB */
 
       up_initial_state(tcb);
-
-      /* Set the task flags to indicate that this is a kernel thread and that
-       * this task is locked to this CPU.
-       */
-
-      tcb->flags = (TCB_FLAG_TTYPE_KERNEL | TCB_FLAG_NONCANCELABLE |
-                    TCB_FLAG_CPU_LOCKED);
-      tcb->cpu   = cpu;
     }
 
   /* Then start all of the other CPUs after we have completed the memory

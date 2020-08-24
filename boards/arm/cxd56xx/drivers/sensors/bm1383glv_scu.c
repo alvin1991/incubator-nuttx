@@ -1,5 +1,5 @@
 /****************************************************************************
- * drivers/platform/sensors/bm1383glv_scu.c
+ * boards/arm/cxd56xx/drivers/sensors/bm1383glv_scu.c
  *
  *   Copyright 2018 Sony Semiconductor Solutions Corporation
  *
@@ -44,7 +44,6 @@
 #include <fixedmath.h>
 #include <errno.h>
 #include <debug.h>
-#include <semaphore.h>
 #include <arch/types.h>
 #include <nuttx/kmalloc.h>
 #include <nuttx/fs/fs.h>
@@ -125,9 +124,10 @@ static int bm1383glv_open(FAR struct file *filep);
 static int bm1383glv_close(FAR struct file *filep);
 static ssize_t bm1383glv_read(FAR struct file *filep, FAR char *buffer,
                               size_t buflen);
-static ssize_t bm1383glv_write(FAR struct file *filep, FAR const char *buffer,
-                               size_t buflen);
-static int bm1383glv_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
+static ssize_t bm1383glv_write(FAR struct file *filep,
+                               FAR const char *buffer, size_t buflen);
+static int bm1383glv_ioctl(FAR struct file *filep, int cmd,
+                           unsigned long arg);
 
 /****************************************************************************
  * Private Data
@@ -280,6 +280,7 @@ static int bm1383glv_seqinit(FAR struct bm1383glv_dev_s *priv)
     {
       return -ENOENT;
     }
+
   priv->seq = g_seq;
 
   seq_setaddress(priv->seq, priv->addr);
@@ -298,8 +299,8 @@ static int bm1383glv_seqinit(FAR struct bm1383glv_dev_s *priv)
     }
 
   seq_setinstruction(priv->seq, inst, nr);
-  seq_setsample(priv->seq, BM1383GLV_BYTESPERSAMPLE, 0, BM1383GLV_ELEMENTSIZE,
-                false);
+  seq_setsample(priv->seq, BM1383GLV_BYTESPERSAMPLE, 0,
+                BM1383GLV_ELEMENTSIZE, false);
 
   return OK;
 }
@@ -330,7 +331,8 @@ static int bm1383glv_open(FAR struct file *filep)
 
       /* goto reset mode */
 
-      bm1383glv_putreg8(priv, BM1383GLV_POWER_DOWN, BM1383GLV_POWER_DOWN_PWR_DOWN);
+      bm1383glv_putreg8(priv, BM1383GLV_POWER_DOWN,
+                        BM1383GLV_POWER_DOWN_PWR_DOWN);
       up_mdelay(1);
 
       /* goto stand-by mode */
@@ -351,6 +353,7 @@ static int bm1383glv_open(FAR struct file *filep)
                 BM1383AGLV_MODE_CONTROL_RESERVED |
                 BM1383AGLV_MODE_CONTROL_CONTINUOUS;
         }
+
       bm1383glv_putreg8(priv, BM1383GLV_MODE_CONTROL, val);
     }
   else
@@ -380,7 +383,7 @@ static int bm1383glv_close(FAR struct file *filep)
 
   g_refcnt--;
 
-  (void) seq_ioctl(priv->seq, priv->minor, SCUIOC_STOP, 0);
+  seq_ioctl(priv->seq, priv->minor, SCUIOC_STOP, 0);
 
   if (g_refcnt == 0)
     {
@@ -401,7 +404,7 @@ static int bm1383glv_close(FAR struct file *filep)
     }
   else
     {
-      (void) seq_ioctl(priv->seq, priv->minor, SCUIOC_FREEFIFO, 0);
+      seq_ioctl(priv->seq, priv->minor, SCUIOC_FREEFIFO, 0);
     }
 
   return OK;
@@ -427,8 +430,8 @@ static ssize_t bm1383glv_read(FAR struct file *filep, FAR char *buffer,
  * Name: bm1383glv_write
  ****************************************************************************/
 
-static ssize_t bm1383glv_write(FAR struct file *filep, FAR const char *buffer,
-                               size_t buflen)
+static ssize_t bm1383glv_write(FAR struct file *filep,
+                               FAR const char *buffer, size_t buflen)
 {
   return -ENOSYS;
 }
@@ -437,7 +440,8 @@ static ssize_t bm1383glv_write(FAR struct file *filep, FAR const char *buffer,
  * Name: bm1383glv_ioctl
  ****************************************************************************/
 
-static int bm1383glv_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
+static int bm1383glv_ioctl(FAR struct file *filep, int cmd,
+                           unsigned long arg)
 {
   FAR struct inode *inode = filep->f_inode;
   FAR struct bm1383glv_dev_s *priv = inode->i_private;
@@ -552,7 +556,7 @@ int bm1383glv_register(FAR const char *devpath, int minor,
 
   /* Register the character driver */
 
-  (void) snprintf(path, sizeof(path), "%s%d", devpath, minor);
+  snprintf(path, sizeof(path), "%s%d", devpath, minor);
   ret = register_driver(path, &g_bm1383glvfops, 0666, priv);
   if (ret < 0)
     {

@@ -120,7 +120,7 @@ static int ehci_waiter(int argc, char *argv[])
         {
           /* Yes.. enumerate the newly connected device */
 
-          (void)CONN_ENUMERATE(g_ehciconn, hport);
+          CONN_ENUMERATE(g_ehciconn, hport);
         }
     }
 
@@ -151,7 +151,7 @@ int imxrt_usbhost_initialize(void)
 
   imxrt_clockall_usboh3();
 
-  /* Make sure we don't accidentially switch on USB bus power */
+  /* Make sure we don't accidentally switch on USB bus power */
 
   *((uint32_t *)IMXRT_USBNC_USB_OTG1_CTRL) = USBNC_PWR_POL;
   *((uint32_t *)0x400d9030)                = (1 << 21);
@@ -276,7 +276,7 @@ void imxrt_usbhost_vbusdrive(int rhport, bool enable)
     }
 }
 
-/****************************************************************************
+/*****************************************************************************
  * Name: imxrt_setup_overcurrent
  *
  * Description:
@@ -291,7 +291,7 @@ void imxrt_usbhost_vbusdrive(int rhport, bool enable)
  *   Zero (OK) returned on success; a negated errno value is returned on
  *   failure.
  *
- ****************************************************************************/
+ *****************************************************************************/
 
 #if 0 /* Not ready yet */
 int imxrt_setup_overcurrent(xcpt_t handler, void *arg)

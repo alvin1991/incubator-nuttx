@@ -59,6 +59,7 @@
 #include "bluetooth/bluetooth.h"
 #include "ieee802154/ieee802154.h"
 #include "local/local.h"
+#include "can/can.h"
 #include "netlink/netlink.h"
 #include "igmp/igmp.h"
 #include "route/route.h"
@@ -158,6 +159,12 @@ void net_initialize(void)
   local_initialize();
 #endif
 
+#ifdef CONFIG_NET_CAN
+  /* Initialize SocketCAN support */
+
+  can_initialize();
+#endif
+
 #ifdef CONFIG_NET_NETLINK
   /* Initialize the Netlink IPC support */
 
@@ -210,4 +217,3 @@ void net_initialize(void)
 }
 
 #endif /* CONFIG_NET */
-

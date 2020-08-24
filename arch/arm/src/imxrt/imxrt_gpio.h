@@ -58,8 +58,8 @@
  *               3322 2222 2222 1111  1111 1100 0000 0000
  *               1098 7654 3210 9876  5432 1098 7654 3210
  *   ENCODING    IIXX XXXX XXXX XXXX  MMMM MMMM MMMM MMMM
- *   GPIO INPUT  00.. .EEG GGGP PPPP  MMMM MMMM MMMM MMMM
- *   INT INPUT   11.. .EEG GGGP PPPP  MMMM MMMM MMMM MMMM
+ *   GPIO INPUT  00.. BEEG GGGP PPPP  MMMM MMMM MMMM MMMM
+ *   INT INPUT   11.. BEEG GGGP PPPP  MMMM MMMM MMMM MMMM
  *   GPIO OUTPUT 01V. ..SG GGGP PPPP  MMMM MMMM MMMM MMMM
  *   PERIPHERAL  10AA AAS. IIII IIII  MMMM MMMM MMMM MMMM
  */
@@ -78,7 +78,7 @@
 #  define GPIO_PERIPH          (2 << GPIO_MODE_SHIFT) /* Peripheral */
 #  define GPIO_INTERRUPT       (3 << GPIO_MODE_SHIFT) /* Interrupt input */
 
-/* Initial Ouptut Value:
+/* Initial Output Value:
  *
  *   GPIO OUTPUT 01V. .... .... ....  .... .... .... ....
  */
@@ -95,7 +95,7 @@
  */
 
 #define GPIO_PORT_SHIFT        (21)      /* Bits 21-23: GPIO port index */
-#define GPIO_PORT_MASK         (15 << GPIO_PORT_SHIFT)
+#define GPIO_PORT_MASK         (7 << GPIO_PORT_SHIFT)
 #  define GPIO_PORT1           (GPIO1 << GPIO_PORT_SHIFT) /* GPIO1 */
 #  define GPIO_PORT2           (GPIO2 << GPIO_PORT_SHIFT) /* GPIO2 */
 #  define GPIO_PORT3           (GPIO3 << GPIO_PORT_SHIFT) /* GPIO3 */
@@ -195,6 +195,17 @@
 #  define GPIO_INT_RISINGEDGE  (GPIO_ICR_RISINGEDGE << GPIO_INTCFG_SHIFT)
 #  define GPIO_INT_FALLINGEDGE (GPIO_ICR_FALLINGEDGE << GPIO_INTCFG_SHIFT)
 
+/* Interrupt on both edges configuration
+ *
+ *               3322 2222 2222 1111  1111 1100 0000 0000
+ *               1098 7654 3210 9876  5432 1098 7654 3210
+ *   INT INPUT   11.. B... .... ....  .... .... .... ....
+ */
+
+#define GPIO_INTBOTHCFG_SHIFT      (27)      /* Bit 27: Interrupt both edges configuration */
+#define GPIO_INTBOTHCFG_MASK       (1 << GPIO_INTBOTHCFG_SHIFT)
+#  define GPIO_INTBOTH_EDGES       (1 << GPIO_INTBOTHCFG_SHIFT)
+
 /* Pad Mux Register Index:
  *
  *               3322 2222 2222 1111  1111 1100 0000 0000
@@ -258,7 +269,7 @@ extern "C"
 
 /* Look-up table that maps GPIO1..GPIOn indexes into GPIO register base addresses */
 
-EXTERN uintptr_t g_gpio_base[IMXRT_GPIO_NPORTS];
+EXTERN const uintptr_t g_gpio_base[IMXRT_GPIO_NPORTS];
 
 /************************************************************************************
  * Public Function Prototypes
@@ -368,4 +379,4 @@ int imxrt_dump_gpio(uint32_t pinset, const char *msg);
 #if defined(__cplusplus)
 }
 #endif
-#endif  /* __ARCH_ARM_SRC_IMXRT_IMXRT_GPIO_H */
+#endif /* __ARCH_ARM_SRC_IMXRT_IMXRT_GPIO_H */

@@ -83,14 +83,6 @@
 #endif
 
 /****************************************************************************
- * Public Function Prototypes
- ****************************************************************************/
-
-#ifdef CONFIG_USBHOST
-int imxrt_usbhost_initialize(void);
-#endif
-
-/****************************************************************************
  * Private Functions
  ****************************************************************************/
 
@@ -172,7 +164,7 @@ int imxrt_bringup(void)
    * capabilities.
    */
 
-#include "up_arch.h"
+#include "arm_arch.h"
 #include "hardware/imxrt_pinmux.h"
 #include "hardware/imxrt_ccm.h"
 #include "imxrt_periphclks.h"
@@ -254,4 +246,3 @@ int imxrt_bringup(void)
 
   return ret;
 }
-

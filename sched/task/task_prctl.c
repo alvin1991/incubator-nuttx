@@ -63,7 +63,7 @@
  *   the specific command.
  *
  * Returned Value:
- *   The returned value may depend on the specific commnand.  For PR_SET_NAME
+ *   The returned value may depend on the specific command.  For PR_SET_NAME
  *   and PR_GET_NAME, the returned value of 0 indicates successful operation.
  *   On any failure, -1 is retruend and the errno value is set appropriately.
  *
@@ -84,16 +84,24 @@ int prctl(int option, ...)
     {
       case PR_SET_NAME:
       case PR_GET_NAME:
+      case PR_SET_NAME_EXT:
+      case PR_GET_NAME_EXT:
 #if CONFIG_TASK_NAME_SIZE > 0
         {
           /* Get the prctl arguments */
 
           FAR char *name = va_arg(ap, FAR char *);
-          int pid  = va_arg(ap, int);
           FAR struct tcb_s *tcb;
+          int pid = 0;
 
-          /* Get the TCB associated with the PID (handling the special case of
-           * pid==0 meaning "this thread")
+          if (option == PR_SET_NAME_EXT ||
+              option == PR_GET_NAME_EXT)
+            {
+              pid = va_arg(ap, int);
+            }
+
+          /* Get the TCB associated with the PID (handling the special case
+           * of pid==0 meaning "this thread")
            */
 
           if (pid == 0)
@@ -102,11 +110,11 @@ int prctl(int option, ...)
             }
           else
             {
-              tcb = sched_gettcb(pid);
+              tcb = nxsched_get_tcb(pid);
             }
 
           /* An invalid pid will be indicated by a NULL TCB returned from
-           * sched_gettcb()
+           * nxsched_get_tcb()
            */
 
           if (tcb == NULL)
@@ -127,7 +135,7 @@ int prctl(int option, ...)
 
           /* Now get or set the task name */
 
-          if (option == PR_SET_NAME)
+          if (option == PR_SET_NAME || option == PR_SET_NAME_EXT)
             {
               /* Ensure that tcb->name will be null-terminated, truncating if
                * necessary.

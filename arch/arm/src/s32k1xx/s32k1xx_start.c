@@ -33,6 +33,10 @@
  *
  ****************************************************************************/
 
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
 #include <nuttx/config.h>
 
 #include <stdint.h>
@@ -43,8 +47,8 @@
 #include <arch/board/board.h>
 #include <arch/irq.h>
 
-#include "up_arch.h"
-#include "up_internal.h"
+#include "arm_arch.h"
+#include "arm_internal.h"
 #include "nvic.h"
 
 #ifdef CONFIG_BUILD_PROTECTED
@@ -57,6 +61,17 @@
 #include "s32k1xx_serial.h"
 #include "s32k1xx_wdog.h"
 #include "s32k1xx_start.h"
+#if defined(CONFIG_ARCH_USE_MPU) && defined(CONFIG_S32K1XX_ENET)
+#include "hardware/s32k1xx_mpu.h"
+#endif
+
+#ifdef CONFIG_S32K1XX_PROGMEM
+#include "s32k1xx_progmem.h"
+#endif
+
+#ifdef CONFIG_S32K1XX_EEEPROM
+#include "s32k1xx_eeeprom.h"
+#endif
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -143,7 +158,8 @@ const uintptr_t g_idle_topstack = HEAP_BASE;
  *       done, the processor reserves space on the stack for the FP state,
  *       but does not save that state information to the stack.
  *
- *  Software must not change the value of the ASPEN bit or LSPEN bit while either:
+ *  Software must not change the value of the ASPEN bit or LSPEN bit while
+ *  either:
  *   - the CPACR permits access to CP10 and CP11, that give access to the FP
  *     extension, or
  *   - the CONTROL.FPCA bit is set to 1
@@ -253,7 +269,8 @@ static inline void s32k1xx_mpu_config(void)
    */
 
   regval = (MPU_RGDAAC_M3UM_XACCESS | MPU_RGDAAC_M3UM_WACCESS |
-            MPU_RGDAAC_M3UM_RACCESS | MPU_RGDAAC_M3SM_M3UM;
+            MPU_RGDAAC_M3UM_RACCESS | MPU_RGDAAC_M3SM_M3UM);
+
   putreg32(regval, S32K1XX_MPU_RGDAAC(0));
 }
 #endif
@@ -330,11 +347,11 @@ void __start(void)
   showprogress('C');
 
 #if defined(CONFIG_ARCH_USE_MPU) && defined(CONFIG_S32K1XX_ENET)
+
   /* Enable all MPU bus masters */
 
   s32k1xx_mpu_config();
   showprogress('D');
-}
 #endif
 
   /* Perform early serial initialization */
@@ -343,6 +360,14 @@ void __start(void)
   s32k1xx_earlyserialinit();
 #endif
   showprogress('E');
+
+#ifdef CONFIG_S32K1XX_PROGMEM
+  s32k1xx_progmem_init();
+#endif
+
+#ifdef CONFIG_S32K1XX_EEEPROM
+  s32k1xx_eeeprom_init();
+#endif
 
   /* For the case of the separate user-/kernel-space build, perform whatever
    * platform specific initialization of the user memory is required.

@@ -79,6 +79,11 @@ int netlink_notifier_setup(worker_t worker, FAR struct netlink_conn_s *conn,
 
   DEBUGASSERT(worker != NULL && conn != NULL);
 
+  if (conn->key > 0)
+    {
+      return -EBUSY;
+    }
+
   /* This is just a simple wrapper around work_notifer_setup(). */
 
   info.evtype    = WORK_NETLINK_RESPONSE;
@@ -88,7 +93,7 @@ int netlink_notifier_setup(worker_t worker, FAR struct netlink_conn_s *conn,
   info.worker    = worker;
 
   conn->key      =  work_notifier_setup(&info);
-  return OK;
+  return conn->key;
 }
 
 /****************************************************************************
@@ -144,5 +149,5 @@ void netlink_notifier_signal(FAR struct netlink_conn_s *conn)
 {
   /* This is just a simple wrapper around work_notifier_signal(). */
 
-  return work_notifier_signal(WORK_NETLINK_RESPONSE, conn);
+  work_notifier_signal(WORK_NETLINK_RESPONSE, conn);
 }

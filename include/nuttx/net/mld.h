@@ -222,8 +222,8 @@
  *                        Address Compatibility Mode for a specific multicast
  *                        address.  When an MLDv1 report is received for that
  *                        multicast address, routers set their Older Version
- *                        Host Present Timer to the Older Version Host Present
- *                        Timeout.
+ *                        Host Present Timer to the Older Version Host
+ *                        Present Timeout.
  */
 
 #define MLD_ROBUSTNESS         (2)
@@ -247,7 +247,8 @@
  ****************************************************************************/
 
 /* Multicast Listener Queries are sent by multicast routers in Querier State
- * to query the multicast listening state of neighboring interfaces (RFC 3810).
+ * to query the multicast listening state of neighboring interfaces
+ * (RFC 3810).
  *
  * There are three variants of the Query message:
  *
@@ -315,6 +316,7 @@ struct mld_mcast_listen_report_v1_s
 };
 
 /* Version 2 Multicast Listener Report (RFC 3810). */
+
 /* This is the form of the address record used in the listener report */
 
 struct mld_mcast_addrec_v2_s
@@ -373,7 +375,7 @@ struct mld_mcast_listen_done_s
 };
 
 /* This structure represents the overall MLD state for a single network.
- * This structure in included withing the net_driver_s structure.
+ * This structure in included within the net_driver_s structure.
  *
  * There will be a group for the all systems group address but this
  * will not run the state machine as it is used to kick off reports
@@ -383,8 +385,8 @@ struct mld_mcast_listen_done_s
 struct mld_netdev_s
 {
   sq_queue_t grplist;                /* MLD group list */
-  WDOG_ID gendog;                    /* General query timer */
-  WDOG_ID v1dog;                     /* MLDv1 compatibility timer */
+  struct wdog_s gendog;              /* General query timer */
+  struct wdog_s v1dog;               /* MLDv1 compatibility timer */
   uint8_t flags;                     /* See MLD_ flags definitions */
 };
 

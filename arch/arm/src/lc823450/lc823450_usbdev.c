@@ -1,36 +1,20 @@
 /****************************************************************************
  * arch/arm/src/lc823450/lc823450_usbdev.c
  *
- *   Copyright 2014, 2015, 2016, 2017 Sony Video & Sound Products Inc.
- *   Author: Masatoshi Tateishi <Masatoshi.Tateishi@jp.sony.com>
- *   Author: Masayuki Ishikawa <Masayuki.Ishikawa@jp.sony.com>
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name NuttX nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
  *
  ****************************************************************************/
 
@@ -75,7 +59,7 @@
 #include <arch/irq.h>
 #include <arch/board/board.h>
 
-#include "up_arch.h"
+#include "arm_arch.h"
 
 #include "lc823450_usbdev.h"
 #include "lc823450_dma.h"
@@ -511,7 +495,7 @@ static int lc823450_epclearreq(struct usbdev_ep_s *ep)
       q_ent = sq_remlast(&privep->req_q);
       req = &container_of(q_ent, struct lc823450_req_s, q_ent)->req;
 
-      /* return reqbuf to funciton driver */
+      /* return reqbuf to function driver */
 
       req->result = -ESHUTDOWN;
       req->callback(ep, req);
@@ -668,7 +652,8 @@ static void lc823450_epfreebuffer(struct usbdev_ep_s *ep, void *buf)
  *
  ****************************************************************************/
 
-static int lc823450_epsubmit(struct usbdev_ep_s *ep, struct usbdev_req_s *req)
+static int lc823450_epsubmit(struct usbdev_ep_s *ep,
+                             struct usbdev_req_s *req)
 {
   struct lc823450_req_s *privreq = (struct lc823450_req_s *)req;
   struct lc823450_ep_s *privep = (struct lc823450_ep_s *)ep;
@@ -689,7 +674,7 @@ static int lc823450_epsubmit(struct usbdev_ep_s *ep, struct usbdev_req_s *req)
     }
   else if (privep->in)
     {
-      /* Send packet requst from function driver */
+      /* Send packet request from function driver */
 
       flags = spin_lock_irqsave();
 
@@ -728,7 +713,8 @@ static int lc823450_epsubmit(struct usbdev_ep_s *ep, struct usbdev_req_s *req)
  *
  ****************************************************************************/
 
-static int lc823450_epcancel(struct usbdev_ep_s *ep, struct usbdev_req_s *req)
+static int lc823450_epcancel(struct usbdev_ep_s *ep,
+                             struct usbdev_req_s *req)
 {
   struct lc823450_req_s *privreq = (struct lc823450_req_s *)req;
   struct lc823450_ep_s *privep = (struct lc823450_ep_s *)ep;
@@ -797,12 +783,12 @@ void up_epignore_clear_stall(struct usbdev_ep_s *ep, bool ignore)
  * Input Parameters:
  *   eplog  - 7-bit logical endpoint number (direction bit ignored).  Zero
  *            means that any endpoint matching the other requirements will
- *            suffice.  The assigned endpoint can be found in the eplog field.
+ *            suffice. The assigned endpoint can be found in the eplog field.
  *   in     - true: IN (device-to-host) endpoint requested
  *   eptype - Endpoint type.  One of {USB_EP_ATTR_XFER_ISOC,
  *            USB_EP_ATTR_XFER_BULK, USB_EP_ATTR_XFER_INT}
  *
- ******************************************************************************/
+ ****************************************************************************/
 
 static struct usbdev_ep_s *lc823450_allocep(struct usbdev_s *dev,
                                             uint8_t eplog, bool in,
@@ -917,6 +903,7 @@ int lc823450_usbpullup(struct usbdev_s *dev, bool enable)
     {
       modifyreg32(USB_DEVC, 0 , USB_DEVC_DISCON);
     }
+
   return 0;
 }
 
@@ -956,6 +943,7 @@ static void usb_suspend_work_func(void *arg)
       g_usbsuspend = 1;
       wake_unlock(&priv->wlock);
     }
+
   spin_unlock_irqrestore(flags);
 }
 #endif
@@ -1151,7 +1139,6 @@ static void subintr_ep0(void)
                     case USB_REQ_RECIPIENT_INTERFACE:
                       resp[0] = 0; /* reserved */
                       break;
-
                   }
 
                 epbuf_write(0, &resp, 2);
@@ -1242,6 +1229,7 @@ static void subintr_ep0(void)
                     {
                       break;
                     }
+
                   up_udelay(10);
                 }
               while (tout--);
@@ -1290,6 +1278,7 @@ static void subintr_epin(uint8_t epnum, struct lc823450_ep_s *privep)
       req = &container_of(q_ent, struct lc823450_req_s, q_ent)->req;
 
       /* Write to TX FIFO */
+
       /* int clear!! before epbuf write */
 
       epcmd_write(epnum, USB_EPCMD_EMPTY_CLR);
@@ -1430,7 +1419,7 @@ static int lc823450_usbinterrupt(int irq, void *context, FAR void *arg)
  ****************************************************************************/
 
 /****************************************************************************
- * Name: up_usbinitialize
+ * Name: arm_usbinitialize
  *
  * Description:
  *   Initialize the USB driver
@@ -1443,7 +1432,7 @@ static int lc823450_usbinterrupt(int irq, void *context, FAR void *arg)
  *
  ****************************************************************************/
 
-void up_usbinitialize(void)
+void arm_usbinitialize(void)
 {
   int i;
   struct lc823450_usbdev_s *priv = &g_usbdev;
@@ -1552,7 +1541,7 @@ int usbdev_register(struct usbdevclass_driver_s *driver)
 
   g_usbdev.bufoffset = 0x180;
 
-  /* Device mode enbale */
+  /* Device mode enable */
 
   modifyreg32(USB_MODE, 0, USB_MODE_DEV_EN);
 
@@ -1821,7 +1810,7 @@ int usbdev_msc_epwrite(void *buf, int len)
            USB_DMAC_START,
            USB_DMAC1);
 
-  (void)nxsem_wait(&dma_wait);
+  nxsem_wait(&dma_wait);
   return 0;
 }
 
@@ -1925,7 +1914,7 @@ int usbdev_msc_epread(void *buf, int len)
            CONFIG_USBMSC_EPBULKOUT  << USB_DMAC_DMAEP_SHIFT |
            USB_DMAC_START,
            USB_DMAC1);
-           (void)nxsem_wait(&dma_wait);
+  nxsem_wait(&dma_wait);
 
   return 0;
 }
@@ -1944,6 +1933,7 @@ void usbdev_msc_stop(void)
  * return value : 0 : charger was not detected.
  *               !0 : charger was detected.
  ****************************************************************************/
+
 int usbdev_is_usbcharger(void)
 {
   return g_usbdev.charger;
@@ -1951,7 +1941,8 @@ int usbdev_is_usbcharger(void)
 #endif
 
 #ifdef CONFIG_PM
-static void usbdev_pmnotify(struct pm_callback_s *cb, enum pm_state_e pmstate)
+static void usbdev_pmnotify(struct pm_callback_s *cb,
+                            enum pm_state_e pmstate)
 {
   irqstate_t flags;
 
@@ -1971,11 +1962,13 @@ static void usbdev_pmnotify(struct pm_callback_s *cb, enum pm_state_e pmstate)
           {
             CLASS_RESUME(g_usbdev.driver, &g_usbdev.usbdev);
           }
+
         break;
 
       default:
         break;
     }
+
   spin_unlock_irqrestore(flags);
 }
 #endif

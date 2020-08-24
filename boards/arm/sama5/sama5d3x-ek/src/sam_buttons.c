@@ -32,6 +32,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 /* There are five push button switches on the SAMA5D3X-EK base board:
  *
  *   1. One Reset, board reset (BP1)
@@ -84,9 +85,10 @@
  *
  ****************************************************************************/
 
-void board_button_initialize(void)
+uint32_t board_button_initialize(void)
 {
-  (void)sam_configpio(PIO_USER1);
+  sam_configpio(PIO_USER1);
+  return NUM_BUTTONS;
 }
 
 /****************************************************************************
@@ -142,7 +144,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
           /* Configure the interrupt */
 
           sam_pioirq(PIO_USER1);
-          (void)irq_attach(IRQ_USER1, irqhandler, arg);
+          irq_attach(IRQ_USER1, irqhandler, arg);
           sam_pioirqenable(IRQ_USER1);
         }
       else
@@ -150,7 +152,7 @@ int board_button_irq(int id, xcpt_t irqhandler, FAR void *arg)
           /* Disable and detach the interrupt */
 
           sam_pioirqdisable(IRQ_USER1);
-          (void)irq_detach(IRQ_USER1);
+          irq_detach(IRQ_USER1);
         }
 
       leave_critical_section(flags);

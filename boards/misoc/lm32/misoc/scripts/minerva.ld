@@ -33,8 +33,6 @@
  *
  ****************************************************************************/
 
-OUTPUT_FORMAT("elf32-littleriscv")
-
 ENTRY(_stext)
 
 MEMORY
@@ -101,4 +99,3 @@ SECTIONS
 }
 
 PROVIDE(_fstack = ORIGIN(main_ram) + LENGTH(main_ram) - 4);
-

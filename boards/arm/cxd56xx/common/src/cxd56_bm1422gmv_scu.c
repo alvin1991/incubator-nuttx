@@ -50,11 +50,15 @@
 
 #include "cxd56_i2c.h"
 
-#ifdef CONFIG_CXD56_DECI_BM1422GMV
+#ifdef CONFIG_SENSORS_BM1422GMV_SCU_DECI
 #  define BM1422GMV_PATH_CNT 3
 #else
 #  define BM1422GMV_PATH_CNT 1
 #endif
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
 
 #ifdef CONFIG_SENSORS_BM1422GMV_SCU
 int board_bm1422gmv_initialize(FAR const char *devpath, int bus)
@@ -65,7 +69,7 @@ int board_bm1422gmv_initialize(FAR const char *devpath, int bus)
 
   sninfo("Initializing BM1422GMV...\n");
 
-  /* Initialize i2c deivce */
+  /* Initialize i2c device */
 
   i2c = cxd56_i2cbus_initialize(bus);
   if (!i2c)

@@ -47,11 +47,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "up_internal.h"
-
-/************************************************************************************
- * Pre-processor Definitions
- ************************************************************************************/
+#include "arm_internal.h"
 
 /* Peripherals **********************************************************************/
 
@@ -75,6 +71,7 @@
 #include "stm32_rtc.h"
 #include "stm32_sdio.h"
 #include "stm32_spi.h"
+#include "stm32_i2s.h"
 #include "stm32_tim.h"
 #include "stm32_uart.h"
 #include "stm32_usbdev.h"
@@ -83,4 +80,3 @@
 #include "stm32_eth.h"
 
 #endif /* __ARCH_ARM_SRC_STM32_STM32_H */
-

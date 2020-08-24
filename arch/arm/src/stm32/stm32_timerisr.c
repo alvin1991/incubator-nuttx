@@ -43,12 +43,14 @@
 #include <time.h>
 #include <debug.h>
 #include <nuttx/arch.h>
+#include <nuttx/timers/arch_timer.h>
 #include <arch/board/board.h>
 
 #include "nvic.h"
 #include "clock/clock.h"
-#include "up_internal.h"
-#include "up_arch.h"
+#include "arm_internal.h"
+#include "arm_arch.h"
+#include "systick.h"
 
 #include "chip.h"
 #include "stm32.h"
@@ -98,6 +100,7 @@
  *
  ****************************************************************************/
 
+#if !defined(CONFIG_ARMV7M_SYSTICK) && !defined(CONFIG_TIMER_ARCH)
 static int stm32_timerisr(int irq, uint32_t *regs, void *arg)
 {
   /* Process timer interrupt */
@@ -105,13 +108,14 @@ static int stm32_timerisr(int irq, uint32_t *regs, void *arg)
   nxsched_process_timer();
   return 0;
 }
+#endif
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Function:  arm_timer_initialize
+ * Function:  up_timer_initialize
  *
  * Description:
  *   This function is called during start-up to initialize
@@ -119,7 +123,7 @@ static int stm32_timerisr(int irq, uint32_t *regs, void *arg)
  *
  ****************************************************************************/
 
-void arm_timer_initialize(void)
+void up_timer_initialize(void)
 {
   uint32_t regval;
 
@@ -142,13 +146,16 @@ void arm_timer_initialize(void)
   putreg32(regval, NVIC_SYSTICK_CTRL);
 #endif
 
+#if defined(CONFIG_ARMV7M_SYSTICK) && defined(CONFIG_TIMER_ARCH)
+  up_timer_set_lowerhalf(systick_initialize(true, STM32_HCLK_FREQUENCY, -1));
+#else
   /* Configure SysTick to interrupt at the requested rate */
 
   putreg32(SYSTICK_RELOAD, NVIC_SYSTICK_RELOAD);
 
   /* Attach the timer interrupt vector */
 
-  (void)irq_attach(STM32_IRQ_SYSTICK, (xcpt_t)stm32_timerisr, NULL);
+  irq_attach(STM32_IRQ_SYSTICK, (xcpt_t)stm32_timerisr, NULL);
 
   /* Enable SysTick interrupts */
 
@@ -158,4 +165,5 @@ void arm_timer_initialize(void)
   /* And enable the timer interrupt */
 
   up_enable_irq(STM32_IRQ_SYSTICK);
+#endif
 }

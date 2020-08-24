@@ -56,6 +56,8 @@
 #  include "hardware/stm32f30xxx_uart.h"
 #elif defined(CONFIG_STM32_STM32F4XXX)
 #  include "hardware/stm32f40xxx_uart.h"
+#elif defined(CONFIG_STM32_STM32G47XX)
+#  include "hardware/stm32g47xxx_uart.h"
 #else
 #  error "Unsupported STM32 UART"
 #endif
@@ -63,6 +65,7 @@
 /************************************************************************************
  * Pre-processor Definitions
  ************************************************************************************/
+
 /* Make sure that we have not enabled more U[S]ARTs than are supported by the
  * device.
  */
@@ -249,7 +252,6 @@
 #  undef CONFIG_UART4_SERIAL_CONSOLE
 #  undef CONFIG_UART5_SERIAL_CONSOLE
 #  undef CONFIG_USART6_SERIAL_CONSOLE
-#  undef CONFIG_UART5_SERIAL_CONSOLE
 #  undef CONFIG_UART8_SERIAL_CONSOLE
 #  define CONSOLE_UART 7
 #  define HAVE_CONSOLE 1
@@ -258,7 +260,7 @@
 #  undef CONFIG_USART2_SERIAL_CONSOLE
 #  undef CONFIG_USART3_SERIAL_CONSOLE
 #  undef CONFIG_UART4_SERIAL_CONSOLE
-#  undef CONFIG_UART6_SERIAL_CONSOLE
+#  undef CONFIG_UART5_SERIAL_CONSOLE
 #  undef CONFIG_USART6_SERIAL_CONSOLE
 #  undef CONFIG_UART7_SERIAL_CONSOLE
 #  define CONSOLE_UART 8
@@ -410,7 +412,7 @@ extern "C"
 #endif
 
 /************************************************************************************
- * Public Functions
+ * Public Functions Prototypes
  ************************************************************************************/
 
 /************************************************************************************

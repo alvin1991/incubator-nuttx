@@ -1,42 +1,20 @@
 /****************************************************************************
  * fs/fat/fs_fat32util.c
  *
- *   Copyright (C) 2007-2009, 2011, 2013, 2015, 2017-2018 Gregory Nutt. All
- *     rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
  *
- * References:
- *   Microsoft FAT documentation
- *   Some good ideas were leveraged from the FAT implementation:
- *     'Copyright (C) 2007, ChaN, all right reserved.'
- *     which has an unrestricted license.
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name NuttX nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
  *
  ****************************************************************************/
 
@@ -52,7 +30,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
@@ -206,7 +183,9 @@ static int fat_checkbootrecord(struct fat_mountpt_s *fs)
       return -EINVAL;
     }
 
-  /* Get the number of FATs. This is probably two but could have other values */
+  /* Get the number of FATs. This is probably two but could have other
+   * values.
+   */
 
   fs->fs_fatnumfats = FBR_GETNUMFATS(fs->fs_buffer);
   ntotalfatsects = fs->fs_fatnumfats * fs->fs_nfatsects;
@@ -289,8 +268,8 @@ static int fat_checkbootrecord(struct fat_mountpt_s *fs)
 uint16_t fat_getuint16(uint8_t *ptr)
 {
   /* NOTE that (1) this operation is independent of endian-ness and that (2)
-   * byte-by-byte transfer is necessary in any case because the address may be
-   * unaligned.
+   * byte-by-byte transfer is necessary in any case because the address may
+   * be unaligned.
    */
 
   return ((uint16_t)ptr[1] << 8) | ptr[0];
@@ -303,8 +282,8 @@ uint16_t fat_getuint16(uint8_t *ptr)
 uint32_t fat_getuint32(uint8_t *ptr)
 {
   /* NOTE that (1) this operation is independent of endian-ness and that (2)
-   * byte-by-byte transfer is necessary in any case because the address may be
-   * unaligned.
+   * byte-by-byte transfer is necessary in any case because the address may
+   * be unaligned.
    */
 
   return ((uint32_t)fat_getuint16(&ptr[2]) << 16) | fat_getuint16(&ptr[0]);
@@ -320,7 +299,7 @@ void fat_putuint16(FAR uint8_t *ptr, uint16_t value16)
 
 #ifdef CONFIG_ENDIAN_BIG
   /* If the target is big-endian then the bytes always have to be swapped so
-   * that the representation is litle endian in the file system.
+   * that the representation is little endian in the file system.
    */
 
   ptr[0] = val[1];
@@ -346,7 +325,7 @@ void fat_putuint32(FAR uint8_t *ptr, uint32_t value32)
 
 #ifdef CONFIG_ENDIAN_BIG
   /* If the target is big-endian then the bytes always have to be swapped so
-   * that the representation is litle endian in the file system.
+   * that the representation is little endian in the file system.
    */
 
   fat_putuint16(&ptr[0], val[1]);
@@ -366,23 +345,9 @@ void fat_putuint32(FAR uint8_t *ptr, uint32_t value32)
  * Name: fat_semtake
  ****************************************************************************/
 
-void fat_semtake(struct fat_mountpt_s *fs)
+int fat_semtake(struct fat_mountpt_s *fs)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&fs->fs_sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  return nxsem_wait_uninterruptible(&fs->fs_sem);
 }
 
 /****************************************************************************
@@ -536,7 +501,9 @@ int fat_mount(struct fat_mountpt_s *fs, bool writeable)
       goto errout;
     }
 
-  /* Make sure that that the media is write-able (if write access is needed) */
+  /* Make sure that that the media is write-able (if write access is
+   * needed).
+   */
 
   if (writeable && !geo.geo_writeenabled)
     {
@@ -562,8 +529,8 @@ int fat_mount(struct fat_mountpt_s *fs, bool writeable)
    * zero.  This could be either the boot record or a partition that refers
    * to the boot record.
    *
-   * First read sector zero.  This will be the first access to the drive and a
-   * likely failure point.
+   * First read sector zero.  This will be the first access to the drive and
+   * a likely failure point.
    */
 
   fs->fs_fatbase = 0;
@@ -589,12 +556,13 @@ int fat_mount(struct fat_mountpt_s *fs, bool writeable)
       int i;
       for (i = 0; i < 4; i++)
         {
-          /* Check if the partition exists and, if so, get the bootsector for that
-           * partition and see if we can find the boot record there.
+          /* Check if the partition exists and, if so, get the bootsector for
+           * that partition and see if we can find the boot record there.
            */
 
           uint8_t part = PART_GETTYPE(i, fs->fs_buffer);
-          finfo("Partition %d, offset %d, type %d\n", i, PART_ENTRY(i), part);
+          finfo("Partition %d, offset %d, type %d\n",
+                 i, PART_ENTRY(i), part);
 
           if (part == 0)
             {
@@ -722,7 +690,8 @@ int fat_checkmount(struct fat_mountpt_s *fs)
             {
               struct geometry geo;
               int errcode = inode->u.i_bops->geometry(inode, &geo);
-              if (errcode == OK && geo.geo_available && !geo.geo_mediachanged)
+              if (errcode == OK && geo.geo_available &&
+                  !geo.geo_mediachanged)
                 {
                   return OK;
                 }
@@ -899,7 +868,9 @@ off_t fat_getcluster(struct fat_mountpt_s *fs, uint32_t clusterno)
 
               cluster |= (unsigned int)fs->fs_buffer[fatindex] << 8;
 
-              /* Now, pick out the correct 12 bit cluster start sector value */
+              /* Now, pick out the correct 12 bit cluster start sector
+               * value.
+               */
 
               if ((clusterno & 1) != 0)
                 {
@@ -920,7 +891,8 @@ off_t fat_getcluster(struct fat_mountpt_s *fs, uint32_t clusterno)
           case FSTYPE_FAT16 :
             {
               unsigned int fatoffset = 2 * clusterno;
-              off_t        fatsector = fs->fs_fatbase + SEC_NSECTORS(fs, fatoffset);
+              off_t        fatsector = fs->fs_fatbase +
+                                       SEC_NSECTORS(fs, fatoffset);
               unsigned int fatindex  = fatoffset & SEC_NDXMASK(fs);
 
               if (fat_fscacheread(fs, fatsector) < 0)
@@ -936,7 +908,8 @@ off_t fat_getcluster(struct fat_mountpt_s *fs, uint32_t clusterno)
           case FSTYPE_FAT32 :
             {
               unsigned int fatoffset = 4 * clusterno;
-              off_t        fatsector = fs->fs_fatbase + SEC_NSECTORS(fs, fatoffset);
+              off_t        fatsector = fs->fs_fatbase +
+                                       SEC_NSECTORS(fs, fatoffset);
               unsigned int fatindex  = fatoffset & SEC_NDXMASK(fs);
 
               if (fat_fscacheread(fs, fatsector) < 0)
@@ -954,7 +927,7 @@ off_t fat_getcluster(struct fat_mountpt_s *fs, uint32_t clusterno)
         }
     }
 
-  /* There is no cluster information, or an error occured */
+  /* There is no cluster information, or an error occurred */
 
   return (off_t)-EINVAL;
 }
@@ -970,7 +943,9 @@ off_t fat_getcluster(struct fat_mountpt_s *fs, uint32_t clusterno)
 int fat_putcluster(struct fat_mountpt_s *fs, uint32_t clusterno,
                    off_t nextcluster)
 {
-  /* Verify that the cluster number is within range.  Zero erases the cluster. */
+  /* Verify that the cluster number is within range.  Zero erases the
+   * cluster.
+   */
 
   if (clusterno == 0 || (clusterno >= 2 && clusterno < fs->fs_nclusters))
     {
@@ -1012,7 +987,8 @@ int fat_putcluster(struct fat_mountpt_s *fs, uint32_t clusterno,
                 {
                   /* Save the LS four bits of the next cluster */
 
-                  value = (fs->fs_buffer[fatindex] & 0x0f) | nextcluster << 4;
+                  value = (fs->fs_buffer[fatindex] & 0x0f) |
+                           nextcluster << 4;
                 }
               else
                 {
@@ -1048,8 +1024,8 @@ int fat_putcluster(struct fat_mountpt_s *fs, uint32_t clusterno,
                     }
                 }
 
-              /* Output the MS byte first handling the 12-bit alignment within
-               * the 16-bits
+              /* Output the MS byte first handling the 12-bit alignment
+               * within the 16-bits
                */
 
               if ((clusterno & 1) != 0)
@@ -1073,7 +1049,8 @@ int fat_putcluster(struct fat_mountpt_s *fs, uint32_t clusterno,
           case FSTYPE_FAT16 :
             {
               unsigned int fatoffset = 2 * clusterno;
-              off_t        fatsector = fs->fs_fatbase + SEC_NSECTORS(fs, fatoffset);
+              off_t        fatsector = fs->fs_fatbase +
+                                       SEC_NSECTORS(fs, fatoffset);
               unsigned int fatindex  = fatoffset & SEC_NDXMASK(fs);
 
               if (fat_fscacheread(fs, fatsector) < 0)
@@ -1090,7 +1067,8 @@ int fat_putcluster(struct fat_mountpt_s *fs, uint32_t clusterno,
           case FSTYPE_FAT32 :
             {
               unsigned int fatoffset = 4 * clusterno;
-              off_t        fatsector = fs->fs_fatbase + SEC_NSECTORS(fs, fatoffset);
+              off_t        fatsector = fs->fs_fatbase +
+                                       SEC_NSECTORS(fs, fatoffset);
               unsigned int fatindex  = fatoffset & SEC_NDXMASK(fs);
               uint32_t     val;
 
@@ -1104,7 +1082,8 @@ int fat_putcluster(struct fat_mountpt_s *fs, uint32_t clusterno,
               /* Keep the top 4 bits */
 
               val = FAT_GETFAT32(fs->fs_buffer, fatindex) & 0xf0000000;
-              FAT_PUTFAT32(fs->fs_buffer, fatindex, val | (nextcluster & 0x0fffffff));
+              FAT_PUTFAT32(fs->fs_buffer, fatindex,
+                           val | (nextcluster & 0x0fffffff));
             }
           break;
 
@@ -1371,9 +1350,9 @@ int fat_nextdirentry(struct fat_mountpt_s *fs, struct fs_fatdir_s *dir)
 
       if (!dir->fd_currcluster)
         {
-          /* For FAT12/16, the boot record tells us number of 32-bit directories
-           * that are contained in the root directory.  This should correspond to
-           * an even number of sectors.
+          /* For FAT12/16, the boot record tells us number of 32-bit
+           * directories that are contained in the root directory.  This
+           * should correspond to an even number of sectors.
            */
 
           if (ndx >= fs->fs_rootentcnt)
@@ -1387,17 +1366,17 @@ int fat_nextdirentry(struct fat_mountpt_s *fs, struct fs_fatdir_s *dir)
         }
       else
         {
-          /* Not a FAT12/16 root directory, check if we have examined the entire
-           * cluster comprising the directory.
+          /* Not a FAT12/16 root directory, check if we have examined the
+           * entire cluster comprising the directory.
            *
-           * The current sector within the cluster is the entry number divided
-           * byte the number of entries per sector
+           * The current sector within the cluster is the entry number
+           * divided byte the number of entries per sector
            */
 
           int sector = ndx / DIRSEC_NDIRS(fs);
 
-          /* We are finished with the cluster when the last sector of the cluster
-           * has been examined.
+          /* We are finished with the cluster when the last sector of the
+           * cluster has been examined.
            */
 
           if ((sector & (fs->fs_fatsecperclus - 1)) == 0)
@@ -1410,7 +1389,9 @@ int fat_nextdirentry(struct fat_mountpt_s *fs, struct fs_fatdir_s *dir)
 
               if (cluster < 2 || cluster >= fs->fs_nclusters)
                 {
-                  /* No, we have probably reached the end of the cluster list */
+                  /* No, we have probably reached the end of the cluster
+                   * list.
+                   */
 
                   return -ENOSPC;
                 }
@@ -1913,7 +1894,8 @@ int fat_ffcacheflush(struct fat_mountpt_s *fs, struct fat_file_s *ff)
  *
  ****************************************************************************/
 
-int fat_ffcacheread(struct fat_mountpt_s *fs, struct fat_file_s *ff, off_t sector)
+int fat_ffcacheread(struct fat_mountpt_s *fs, struct fat_file_s *ff,
+                    off_t sector)
 {
   int ret;
 
@@ -2046,7 +2028,9 @@ int fat_nfreeclusters(struct fat_mountpt_s *fs, off_t *pfreeclusters)
 {
   uint32_t nfreeclusters;
 
-  /* If number of the first free cluster is valid, then just return that value. */
+  /* If number of the first free cluster is valid, then just return that
+   * value.
+   */
 
   if (fs->fs_fsifreecount <= fs->fs_nclusters - 2)
     {
@@ -2065,7 +2049,9 @@ int fat_nfreeclusters(struct fat_mountpt_s *fs, off_t *pfreeclusters)
 
       for (sector = 2; sector < fs->fs_nclusters; sector++)
         {
-          /* If the cluster is unassigned, then increment the count of free clusters */
+          /* If the cluster is unassigned, then increment the count of free
+           * clusters.
+           */
 
           if ((uint16_t)fat_getcluster(fs, sector) == 0)
             {
@@ -2087,7 +2073,9 @@ int fat_nfreeclusters(struct fat_mountpt_s *fs, off_t *pfreeclusters)
 
       for (cluster = fs->fs_nclusters; cluster > 0; cluster--)
         {
-          /* If we are starting a new sector, then read the new sector in fs_buffer */
+          /* If we are starting a new sector, then read the new sector in
+           * fs_buffer.
+           */
 
           if (offset >= fs->fs_hwsectorsize)
             {

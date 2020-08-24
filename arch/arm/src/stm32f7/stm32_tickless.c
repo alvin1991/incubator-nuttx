@@ -34,6 +34,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 /****************************************************************************
  * Tickless OS Support.
  *
@@ -41,7 +42,7 @@
  * is suppressed and the platform specific code is expected to provide the
  * following custom functions.
  *
- *   void arm_timer_initialize(void): Initializes the timer facilities.
+ *   void up_timer_initialize(void): Initializes the timer facilities.
  *     Called early in the initialization sequence (by up_initialize()).
  *   int up_timer_gettime(FAR struct timespec *ts):  Returns the current
  *     time from the platform specific time source.
@@ -88,7 +89,7 @@
 #include <nuttx/arch.h>
 #include <debug.h>
 
-#include "up_arch.h"
+#include "arm_arch.h"
 
 #include "stm32_tim.h"
 #include "stm32_dbgmcu.h"
@@ -139,7 +140,7 @@ struct stm32_tickless_s
   volatile bool pending;           /* True: pending task */
   uint32_t period;                 /* Interval period */
   uint32_t base;
-#if CONFIG_SCHED_TICKLESS_ALARM
+#ifdef CONFIG_SCHED_TICKLESS_ALARM
   uint64_t last_alrm;
 #endif
 };
@@ -223,7 +224,7 @@ static inline void stm32_tickless_ackint(int channel)
 
 /****************************************************************************
  * Name: stm32_tickless_getint
- ******************************************************************************/
+ ****************************************************************************/
 
 static inline uint16_t stm32_tickless_getint(void)
 {
@@ -394,11 +395,22 @@ static int stm32_tickless_handler(int irq, void *context, void *arg)
 }
 
 /****************************************************************************
+ * Name: stm32_get_counter
+ *
+ ****************************************************************************/
+
+static uint64_t stm32_get_counter(void)
+{
+  return ((uint64_t)g_tickless.overflow << 32) |
+         STM32_TIM_GETCOUNTER(g_tickless.tch);
+}
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: arm_timer_initialize
+ * Name: up_timer_initialize
  *
  * Description:
  *   Initializes all platform-specific timer facilities.  This function is
@@ -422,7 +434,7 @@ static int stm32_tickless_handler(int irq, void *context, void *arg)
  *
  ****************************************************************************/
 
-void arm_timer_initialize(void)
+void up_timer_initialize(void)
 {
   switch (CONFIG_STM32F7_TICKLESS_TIMER)
     {
@@ -604,7 +616,7 @@ void arm_timer_initialize(void)
  *
  * Description:
  *   Return the elapsed time since power-up (or, more correctly, since
- *   arm_timer_initialize() was called).  This function is functionally
+ *   up_timer_initialize() was called).  This function is functionally
  *   equivalent to:
  *
  *      int clock_gettime(clockid_t clockid, FAR struct timespec *ts);
@@ -939,7 +951,7 @@ int up_timer_start(FAR const struct timespec *ts)
       /* Yes.. then cancel it */
 
       tmrinfo("Already running... cancelling\n");
-      (void)up_timer_cancel(NULL);
+      up_timer_cancel(NULL);
     }
 
   /* Express the delay in microseconds */
@@ -988,22 +1000,41 @@ int up_timer_start(FAR const struct timespec *ts)
 }
 #endif
 
+#ifdef CONFIG_SCHED_TICKLESS_ALARM
 int up_alarm_start(FAR const struct timespec *ts)
 {
+  size_t offset = 1;
   uint64_t tm = ((uint64_t)ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec) /
                 NSEC_PER_TICK;
-  uint64_t counter = ((uint64_t)g_tickless.overflow << 32) |
-                     STM32_TIM_GETCOUNTER(g_tickless.tch);
+  irqstate_t flags;
 
-  g_tickless.last_alrm = tm;
-
-  int32_t diff = tm / NSEC_PER_TICK + counter;
+  flags = enter_critical_section();
 
   STM32_TIM_SETCOMPARE(g_tickless.tch, CONFIG_STM32F7_TICKLESS_CHANNEL, tm);
 
   stm32_tickless_ackint(g_tickless.channel);
   stm32_tickless_enableint(CONFIG_STM32F7_TICKLESS_CHANNEL);
 
+  g_tickless.pending = true;
+
+  /* If we have already passed this time, there is a chance we didn't set the
+   * compare register in time and we've missed the interrupt. If we don't
+   * catch this case, we won't interrupt until a full loop of the clock.
+   *
+   * Since we can't make assumptions about the clock speed and tick rate,
+   * we simply keep adding an offset to the current time, until we can leave
+   * certain that the interrupt is going to fire as soon as we leave the
+   * critical section.
+   */
+
+  while (tm <= stm32_get_counter())
+    {
+      tm = stm32_get_counter() + offset++;
+      STM32_TIM_SETCOMPARE(g_tickless.tch, CONFIG_STM32F7_TICKLESS_CHANNEL,
+                           tm);
+    }
+
+  leave_critical_section(flags);
   return OK;
 }
 
@@ -1019,5 +1050,6 @@ int up_alarm_cancel(FAR struct timespec *ts)
 
   return 0;
 }
+#endif
 
 #endif /* CONFIG_SCHED_TICKLESS */

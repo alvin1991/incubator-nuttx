@@ -40,7 +40,6 @@
 #include <nuttx/config.h>
 
 #include <stdio.h>
-#include <semaphore.h>
 
 #include <nuttx/streams.h>
 
@@ -54,7 +53,7 @@
  * Name: vsscanf
  ****************************************************************************/
 
-int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
+int vsscanf(FAR const char *buf, FAR const IPTR char *fmt, va_list ap)
 {
   struct lib_meminstream_s meminstream;
   int n;
@@ -65,7 +64,6 @@ int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
                   LIB_BUFLEN_UNKNOWN);
 
   /* Then let lib_vscanf do the real work */
-
 
   n = lib_vscanf((FAR struct lib_instream_s *)&meminstream.public, NULL,
                   fmt, ap);
